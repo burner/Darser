@@ -125,12 +125,39 @@ class Darser {
 
 	void generateClasses(File.LockingTextWriter ltw) {
 		import std.format;
-		foreach(rule; this.rules) {
+		void generateMembers(File.LockingTextWriter ltw, Rule rule) {
 			RulePart[string] uni = this.unique(rule);
-			formattedWrite(ltw, "class %s {\n", rule.name);	
 			foreach(key, value; uni) {
 				formattedWrite(ltw, "\t%s %s;\n", value.name, key);
 			}
+		}
+
+		void genreateCTors(File.LockingTextWriter ltw, Rule rule) {
+			foreach(it; rule.subRules) {
+				bool first = true;
+				formattedWrite(ltw, "\tthis(");
+				foreach(jt; it.elements) {
+					if(jt.storeThis == StoreRulePart.yes) {
+						if(first) {
+							formattedWrite(ltw, "%s %s", 
+									jt.name, jt.storeName
+							);
+						} else {
+							formattedWrite(ltw, ", %s %s", 
+									jt.name, jt.storeName
+							);
+						}
+						first = false;
+					}
+				}
+				formattedWrite(ltw, ") {\n");
+				formattedWrite(ltw, "\t}\n\n");
+			}
+		}
+		foreach(rule; this.rules) {
+			formattedWrite(ltw, "class %s {\n", rule.name);	
+			generateMembers(ltw, rule);
+			genreateCTors(ltw, rule);
 			formattedWrite(ltw, "}\n");	
 		}
 	}
