@@ -1,83 +1,11 @@
 import std.stdio;
 import dyaml.all;
 
-import std.typecons : Flag;
 import std.format : format;
-import std.uni;
 import std.array : back, front;
-import std.string : indexOf;
 
-alias StoreRulePart = Flag!"StoreRulePart";
-
-class RulePart {
-	StoreRulePart storeThis;	
-	string name;
-	string storeName;
-
-	this(string name) {
-		this.name = name;
-
-		auto hashIdx = this.name.indexOf('#');
-		if(hashIdx != -1) {
-			this.storeThis = StoreRulePart.yes;
-			this.storeName = this.name[hashIdx + 1 .. $];
-			this.name = this.name[0 .. hashIdx];
-		}
-	}
-
-	bool terminal() pure const @safe {
-		return this.name.front.isUpper();
-	}
-
-	bool nonterminal() pure const @safe {
-		return this.name.front.isLower();
-	}
-
-	override string toString() pure const @safe {
-		if(this.storeThis == StoreRulePart.yes) {
-			return format("%s#%s", this.name, this.storeName);
-		} else {
-			return this.name;
-		}
-	}
-}
-
-class SubRule {
-	RulePart[] elements;
-
-	string name;
-
-	this(string name) {
-		this.name = name;
-	}
-
-	override string toString() pure const @safe {
-		string rslt = this.name ~ " : ";
-		foreach(it; this.elements) {
-			rslt ~= it.toString() ~ " ";
-		}
-
-		return rslt;
-	}
-}
-
-class Rule {
-	SubRule[] subRules;
-	string name;
-
-	this(string name) {
-		this.name = name;
-	}
-
-	override string toString() pure const @safe {
-		string rslt = this.name ~ " : \n";
-		foreach(it; this.subRules) {
-			rslt ~= "\t" ~ it.toString() ~ "\n";
-		}
-
-		return rslt;
-	}
-}
+import rules;
+import trie;
 
 class Darser {
 	Rule[] rules;
@@ -130,9 +58,10 @@ class Darser {
 			foreach(key, value; uni) {
 				formattedWrite(ltw, "\t%s %s;\n", value.name, key);
 			}
+			formattedWrite(ltw, "\n");
 		}
 
-		void genreateCTors(File.LockingTextWriter ltw, Rule rule) {
+		void genereateCTors(File.LockingTextWriter ltw, Rule rule) {
 			foreach(it; rule.subRules) {
 				bool first = true;
 				formattedWrite(ltw, "\tthis(");
@@ -151,15 +80,47 @@ class Darser {
 					}
 				}
 				formattedWrite(ltw, ") {\n");
+				foreach(jt; it.elements) {
+					if(jt.storeThis == StoreRulePart.yes) {
+						formattedWrite(ltw, "\t\tthis.%s = %s;\n", 
+								jt.storeName, jt.storeName
+						);
+					}
+				}
 				formattedWrite(ltw, "\t}\n\n");
 			}
+		}
+
+		void generateVisitor(File.LockingTextWriter ltw, Rule rule) {
+			formattedWrite(ltw, 
+`	final void visit(Visitor vis) {
+		vis.accept(this);
+	}
+
+	final void visit(Visitor vis) const {
+		vis.accept(this);
+	}
+`
+			);
+
 		}
 		foreach(rule; this.rules) {
 			formattedWrite(ltw, "class %s {\n", rule.name);	
 			generateMembers(ltw, rule);
-			genreateCTors(ltw, rule);
-			formattedWrite(ltw, "}\n");	
+			genereateCTors(ltw, rule);
+			generateVisitor(ltw, rule);
+			formattedWrite(ltw, "}\n\n");	
 		}
+	}
+
+	void genRules(File.LockingTextWriter ltw) {
+		foreach(rule;  this.rules) {
+			this.genRule(ltw, rule);
+		}
+	}
+
+	void genRule(File.LockingTextWriter ltw, Rule rule) {
+
 	}
 }
 
@@ -168,4 +129,10 @@ void main(string[] args) {
 
 	//auto f = File("classes.d", "w");
 	darser.generateClasses(stdout.lockingTextWriter());
+
+	foreach(rule; darser.rules) {
+		auto t = ruleToTrie(rule);
+		writeln(t.toString());
+	}
 }
+
