@@ -6,6 +6,7 @@ class Trie {
 	import std.array : appender, Appender;
 	Trie[] follow;
 	RulePart value;
+	string subRuleName;
 
 	this() {
 	}
@@ -25,10 +26,16 @@ class Trie {
 
 	void toString(Appender!string app, int indent) {
 		import std.format : formattedWrite;
+		import std.array : empty;
 		for(int i = 0; i < indent; ++i) {
 			formattedWrite(app, " ");
 		}
-		formattedWrite(app, "%s\n", this.value.name);
+		formattedWrite(app, "%s", this.value.name);
+		if(this.follow.empty) {
+			formattedWrite(app, " %s\n", this.subRuleName);
+		} else {
+			formattedWrite(app, "\n");
+		}
 		foreach(f; this.follow) {
 			f.toString(app, indent + 1);
 		}
@@ -54,6 +61,7 @@ Trie ruleToTrie(Rule rule) {
 				cur = cur.follow.back;
 			}
 		}
+		cur.subRuleName = subRule.name;
 	}
 
 	return ret;
