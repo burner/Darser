@@ -179,9 +179,9 @@ class Parser {
 	}
 
 	void genRule(File.LockingTextWriter ltw, Rule rule) {
-		auto t = ruleToTrie(rule);
 		this.genIndent(ltw, 1);
 		formattedWrite(ltw, "%1$s parse%1$s() {\n", rule.name);
+		auto t = ruleToTrie(rule);
 		this.genIndent(ltw, 1);
 		formattedWrite(ltw, "}\n");
 	}
@@ -198,5 +198,6 @@ void main(string[] args) {
 	}*/
 
 	writeln(darser.firstSets);
+	darser.genRules(stdout.lockingTextWriter());
 }
 
