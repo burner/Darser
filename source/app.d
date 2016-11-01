@@ -244,6 +244,19 @@ class Parser {
 		void genParse(File.LockingTextWriter ltw, const(size_t) idx, Trie t, 
 				int indent) 
 		{
+			void genTrieCtor(File.LockingTextWriter ltw, Trie t, int indent) {
+				this.genIndent(ltw, indent + 1);
+				formattedWrite(ltw, "return new %s(%1$sEnum.%s", 
+					t.subRuleName , t.ruleName
+				);
+				foreach(kt; t.subRule.elements) {
+					if(kt.storeThis) {
+						formattedWrite(ltw, ", %s", kt.storeName);
+					}
+				}
+				formattedWrite(ltw, ");");
+			}
+
 			if(idx > 0) {
 				formattedWrite(ltw, " else ");
 			} else {
@@ -272,19 +285,7 @@ class Parser {
 					genParse(ltw, i, it, indent + 1);
 				}
 				if(t.follow.empty) {
-					this.genIndent(ltw, indent + 1);
-					formattedWrite(ltw, "return new %s(", t.ruleName);
-					int ktx = 0;
-					foreach(kt; t.subRule.elements) {
-						if(kt.storeThis && ktx > 0) {
-							formattedWrite(ltw, ", %s", kt.storeName);
-							++ktx;
-						} else if(kt.storeThis && ktx == 0) {
-							formattedWrite(ltw, "%s", kt.storeName);
-							++ktx;
-						}
-					}
-					formattedWrite(ltw, ");");
+					genTrieCtor(ltw, t, indent);
 				}
 				formattedWrite(ltw, "\n");
 			} else {
@@ -301,19 +302,7 @@ class Parser {
 					genParse(ltw, i, it, indent + 1);
 				}
 				if(t.follow.empty) {
-					this.genIndent(ltw, indent + 1);
-					formattedWrite(ltw, "return new %s(", t.ruleName);
-					int ktx = 0;
-					foreach(kt; t.subRule.elements) {
-						if(kt.storeThis && ktx > 0) {
-							formattedWrite(ltw, ", %s", kt.storeName);
-							++ktx;
-						} else if(kt.storeThis && ktx == 0) {
-							formattedWrite(ltw, "%s", kt.storeName);
-							++ktx;
-						}
-					}
-					formattedWrite(ltw, ");");
+					genTrieCtor(ltw, t, indent);
 				}
 				formattedWrite(ltw, "\n");
 			}
@@ -341,7 +330,7 @@ void main(string[] args) {
 	auto darser = new Darser("e.yaml");
 
 	//auto f = File("classes.d", "w");
-	//darser.generateClasses(stdout.lockingTextWriter());
+	darser.generateClasses(stdout.lockingTextWriter());
 
 	/*foreach(r; darser.rules) {
 		darser.genRule(stdout.lockingTextWriter(), r);
