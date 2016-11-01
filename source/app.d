@@ -9,10 +9,10 @@ import trie;
 class Darser {
 	import std.format;
 	import std.array : empty;
-	import std.uni : isLower;
+	import std.uni : isLower, isUpper;
 	Rule[] rules;
 
-	string[][string] firstSets;
+	bool[string][string] firstSets;
 
 	string filename;
 	this(string filename) {
@@ -167,23 +167,173 @@ class Parser {
 		);
 	}
 
+	void fillFirstSets() {
+		repeat: do {
+			foreach(rule; this.rules) {
+				foreach(subRule; rule.subRules) {
+					if(isUpper(subRule.elements[0].name[0])) {
+						long oldSize = rule.name in this.firstSets ? 
+							this.firstSets[rule.name].length : 0;
+						if(subRule.elements[0].name in this.firstSets) {
+							foreach(key;
+									this.firstSets[subRule.elements[0].name].byKey())
+							{
+								this.firstSets[rule.name][key] = true;
+							}
+						}
+						long newSize = rule.name in this.firstSets ? 
+							this.firstSets[rule.name].length : 0;
+						if(newSize > oldSize) {
+							goto repeat;
+						}
+					}
+				}
+			}
+		} while(false);
+	}
+
 	void genFirstSet() {
 		foreach(rule; this.rules) {
-			this.firstSets[rule.name] = [];
 			foreach(subRule; rule.subRules) {
 				if(isLower(subRule.elements[0].name[0])) {
-					this.firstSets[rule.name] ~= subRule.elements[0].name;
+					this.firstSets[rule.name][subRule.elements[0].name] = true;
 				}
 			}
 		}
+		//writeln(this.firstSets);
+		//this.fillFirstSets();
+		//writeln(this.firstSets);
 	}
 
 	void genRule(File.LockingTextWriter ltw, Rule rule) {
+		void genFirst(File.LockingTextWriter ltw, Rule rule) {
+			bool[string] found;
+			this.genIndent(ltw, 1);
+			formattedWrite(ltw, "bool first%s() const {\n", rule.name);
+			this.genIndent(ltw, 2);
+			formattedWrite(ltw, "return ");
+
+			bool first = true;
+			foreach(subRule; rule.subRules) {
+				if(subRule.elements[0].name in found) {
+					continue;
+				}
+				if(!first) {
+					formattedWrite(ltw, "\n");
+					this.genIndent(ltw, 3);
+					formattedWrite(ltw, " || ");
+				}
+				if(isLower(subRule.elements[0].name[0])) {
+					formattedWrite(ltw, "this.lex.first.type == TokenType.%s",
+						subRule.elements[0].name
+					);
+				} else {
+					formattedWrite(ltw, "this.first%s()",
+						subRule.elements[0].name
+					);
+
+				}
+				found[subRule.elements[0].name] = true;
+				first = false;
+			}
+			formattedWrite(ltw, ";\n\t}\n\n");
+		}
+
+		genFirst(ltw, rule);
+
+		void genParse(File.LockingTextWriter ltw, const(size_t) idx, Trie t, 
+				int indent) 
+		{
+			if(idx > 0) {
+				formattedWrite(ltw, " else ");
+			} else {
+				this.genIndent(ltw, indent);
+			}
+			if(isLower(t.value.name[0])) {
+				if(t.value.storeThis) {
+					formattedWrite(ltw, "Token %s = this.lex.front;\n",
+						t.value.storeName
+					);
+					this.genIndent(ltw, indent);
+					formattedWrite(ltw, "if(%1$s.type == TokenType.%s) {\n",
+						t.value.storeName, t.value.name
+					);
+					this.genIndent(ltw, indent + 1);
+					formattedWrite(ltw, "this.lex.popFront();\n");
+				} else {
+					formattedWrite(ltw, 
+						"if(this.token.front.type == TokenType.%s) {\n",
+						t.value.name
+					);
+					this.genIndent(ltw, indent + 1);
+					formattedWrite(ltw, "this.lex.popFront();\n");
+				}
+				foreach(i, it; t.follow) {
+					genParse(ltw, i, it, indent + 1);
+				}
+				if(t.follow.empty) {
+					this.genIndent(ltw, indent + 1);
+					formattedWrite(ltw, "return new %s(", t.ruleName);
+					int ktx = 0;
+					foreach(kt; t.subRule.elements) {
+						if(kt.storeThis && ktx > 0) {
+							formattedWrite(ltw, ", %s", kt.storeName);
+							++ktx;
+						} else if(kt.storeThis && ktx == 0) {
+							formattedWrite(ltw, "%s", kt.storeName);
+							++ktx;
+						}
+					}
+					formattedWrite(ltw, ");");
+				}
+				formattedWrite(ltw, "\n");
+			} else {
+				formattedWrite(ltw, "if(this.first%s()) {\n", t.value.name);
+				this.genIndent(ltw, indent + 1);
+				if(t.value.storeThis) {
+					formattedWrite(ltw, "%1$s %2$s = this.parse%1$s();\n",
+							t.value.name, t.value.storeName
+					);
+				} else {
+					formattedWrite(ltw, "this.parse%s();\n", t.value.name);
+				}
+				foreach(i, it; t.follow) {
+					genParse(ltw, i, it, indent + 1);
+				}
+				if(t.follow.empty) {
+					this.genIndent(ltw, indent + 1);
+					formattedWrite(ltw, "return new %s(", t.ruleName);
+					int ktx = 0;
+					foreach(kt; t.subRule.elements) {
+						if(kt.storeThis && ktx > 0) {
+							formattedWrite(ltw, ", %s", kt.storeName);
+							++ktx;
+						} else if(kt.storeThis && ktx == 0) {
+							formattedWrite(ltw, "%s", kt.storeName);
+							++ktx;
+						}
+					}
+					formattedWrite(ltw, ");");
+				}
+				formattedWrite(ltw, "\n");
+			}
+			this.genIndent(ltw, indent);
+			formattedWrite(ltw, "}");
+		}
+
+		auto t = ruleToTrie(rule);
+		foreach(it; t) {
+			writeln(it.toString());
+		}
 		this.genIndent(ltw, 1);
 		formattedWrite(ltw, "%1$s parse%1$s() {\n", rule.name);
-		auto t = ruleToTrie(rule);
+		foreach(i, it; t) {
+			genParse(ltw, i, it, 2);
+		}
+			
+		formattedWrite(ltw, "\n");
 		this.genIndent(ltw, 1);
-		formattedWrite(ltw, "}\n");
+		formattedWrite(ltw, "}\n\n");
 	}
 }
 
@@ -197,7 +347,6 @@ void main(string[] args) {
 		darser.genRule(stdout.lockingTextWriter(), r);
 	}*/
 
-	writeln(darser.firstSets);
 	darser.genRules(stdout.lockingTextWriter());
 }
 

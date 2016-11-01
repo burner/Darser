@@ -6,7 +6,9 @@ class Trie {
 	import std.array : appender, Appender;
 	Trie[] follow;
 	RulePart value;
+	SubRule subRule;
 	string subRuleName;
+	string ruleName;
 
 	this() {
 	}
@@ -42,7 +44,7 @@ class Trie {
 	}
 }
 
-Trie ruleToTrie(Rule rule) {
+Trie[] ruleToTrie(Rule rule) {
 	import std.array : back;
 	auto ret = new Trie;
 
@@ -58,11 +60,13 @@ Trie ruleToTrie(Rule rule) {
 			}
 			if(follow is null) {
 				cur.follow ~= new Trie(rp);
+				cur.follow.back.subRule = subRule;
+				cur.follow.back.ruleName = rule.name;
 				cur = cur.follow.back;
 			}
 		}
 		cur.subRuleName = subRule.name;
 	}
 
-	return ret;
+	return ret.follow;
 }
