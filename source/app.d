@@ -6,6 +6,17 @@ import std.array : back, front;
 import rules;
 import trie;
 
+void formatIndent(O,Args...)(ref O o, long indent, string str, 
+		auto ref Args args)
+{
+	import std.format : formattedWrite;
+	while(indent > 0) {
+		formattedWrite(o, "\t");
+		--indent;
+	}
+	formattedWrite(o, str, args);
+}
+
 class Darser {
 	import std.format;
 	import std.array : empty;
@@ -208,10 +219,8 @@ class Parser {
 	void genRule(File.LockingTextWriter ltw, Rule rule) {
 		void genFirst(File.LockingTextWriter ltw, Rule rule) {
 			bool[string] found;
-			this.genIndent(ltw, 1);
-			formattedWrite(ltw, "bool first%s() const {\n", rule.name);
-			this.genIndent(ltw, 2);
-			formattedWrite(ltw, "return ");
+			formatIndent(ltw, 1, "bool first%s() const {\n", rule.name);
+			formatIndent(ltw, 2, "return ");
 
 			bool first = true;
 			foreach(subRule; rule.subRules) {
@@ -220,8 +229,7 @@ class Parser {
 				}
 				if(!first) {
 					formattedWrite(ltw, "\n");
-					this.genIndent(ltw, 3);
-					formattedWrite(ltw, " || ");
+					formatIndent(ltw, 3, " || ");
 				}
 				if(isLower(subRule.elements[0].name[0])) {
 					formattedWrite(ltw, "this.lex.first.type == TokenType.%s",
@@ -241,22 +249,23 @@ class Parser {
 
 		genFirst(ltw, rule);
 
-		void genParse(File.LockingTextWriter ltw, const(size_t) idx, Trie t, 
-				int indent) 
+		void genTrieCtor(File.LockingTextWriter ltw, Trie t, int indent)
+				const 
 		{
-			void genTrieCtor(File.LockingTextWriter ltw, Trie t, int indent) {
-				this.genIndent(ltw, indent + 1);
-				formattedWrite(ltw, "return new %s(%1$sEnum.%s", 
-					t.subRuleName , t.ruleName
-				);
-				foreach(kt; t.subRule.elements) {
-					if(kt.storeThis) {
-						formattedWrite(ltw, ", %s", kt.storeName);
-					}
+			formatIndent(ltw, indent + 1, "return new %s(%1$sEnum.%s", 
+				t.subRuleName , t.ruleName
+			);
+			foreach(kt; t.subRule.elements) {
+				if(kt.storeThis) {
+					formattedWrite(ltw, ", %s", kt.storeName);
 				}
-				formattedWrite(ltw, ");");
 			}
+			formattedWrite(ltw, ");");
+		}
 
+		void genParse(File.LockingTextWriter ltw, const(size_t) idx,
+				const(size_t) off, Trie t, int indent, Trie[] fail) 
+		{
 			if(idx > 0) {
 				formattedWrite(ltw, " else ");
 			} else {
@@ -267,22 +276,19 @@ class Parser {
 					formattedWrite(ltw, "Token %s = this.lex.front;\n",
 						t.value.storeName
 					);
-					this.genIndent(ltw, indent);
-					formattedWrite(ltw, "if(%1$s.type == TokenType.%s) {\n",
+					formatIndent(ltw, indent, "if(%1$s.type == TokenType.%s) {\n",
 						t.value.storeName, t.value.name
 					);
-					this.genIndent(ltw, indent + 1);
-					formattedWrite(ltw, "this.lex.popFront();\n");
+					formatIndent(ltw, indent + 1, "this.lex.popFront();\n");
 				} else {
 					formattedWrite(ltw, 
 						"if(this.token.front.type == TokenType.%s) {\n",
 						t.value.name
 					);
-					this.genIndent(ltw, indent + 1);
-					formattedWrite(ltw, "this.lex.popFront();\n");
+					formatIndent(ltw, indent + 1, "this.lex.popFront();\n");
 				}
 				foreach(i, it; t.follow) {
-					genParse(ltw, i, it, indent + 1);
+					genParse(ltw, i, t.follow.length, it, indent + 1, t.follow);
 				}
 				if(t.follow.empty) {
 					genTrieCtor(ltw, t, indent);
@@ -299,30 +305,53 @@ class Parser {
 					formattedWrite(ltw, "this.parse%s();\n", t.value.name);
 				}
 				foreach(i, it; t.follow) {
-					genParse(ltw, i, it, indent + 1);
+					genParse(ltw, i, t.follow.length, it, indent + 1, t.follow);
 				}
 				if(t.follow.empty) {
 					genTrieCtor(ltw, t, indent);
 				}
 				formattedWrite(ltw, "\n");
 			}
-			this.genIndent(ltw, indent);
-			formattedWrite(ltw, "}");
+			formatIndent(ltw, indent, "}");
+			if(idx + 1 == off) {
+				formattedWrite(ltw, "\n");
+				formatIndent(ltw, indent, "throw new Exception(\"Was expecting an");
+				foreach(htx, ht; fail) {
+					if(htx == 0) {
+						formattedWrite(ltw, " %s", ht.value.name);
+					} else if(htx + 1 == fail.length) {
+						formattedWrite(ltw, ", or %s", ht.value.name);
+					} else {
+						formattedWrite(ltw, ", %s", ht.value.name);
+					}
+				}
+				formattedWrite(ltw, ".\");");
+				
+			}
 		}
 
 		auto t = ruleToTrie(rule);
 		foreach(it; t) {
 			writeln(it.toString());
 		}
-		this.genIndent(ltw, 1);
-		formattedWrite(ltw, "%1$s parse%1$s() {\n", rule.name);
+		formatIndent(ltw, 1, "%1$s parse%1$s() {\n", rule.name);
+		formatIndent(ltw, 2, "try {\n");
+		formatIndent(ltw, 3, "return this.parse%sImpl();\n", rule.name);
+		formatIndent(ltw, 2, "} catch(ParseException e) {\n");
+		formatIndent(ltw, 3, 
+				"throw new ParseException(\"While parsing a %s an Exception "
+				~ "was thrown.\", e);\n", rule.name
+		);
+		formatIndent(ltw, 2, "}\n");
+		formatIndent(ltw, 1, "}\n\n");
+
+		formatIndent(ltw, 1, "%1$s parse%1$sImpl() {\n", rule.name);
 		foreach(i, it; t) {
-			genParse(ltw, i, it, 2);
+			genParse(ltw, i, t.length, it, 2, t);
 		}
 			
 		formattedWrite(ltw, "\n");
-		this.genIndent(ltw, 1);
-		formattedWrite(ltw, "}\n\n");
+		formatIndent(ltw, 1, "}\n\n");
 	}
 }
 
