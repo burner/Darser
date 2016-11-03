@@ -490,6 +490,11 @@ class Parser {
 		formatIndent(ltw, 2, "this.line = l;\n");
 		formatIndent(ltw, 2, "this.column = c;\n");
 		formatIndent(ltw, 1, "}\n\n");
+		formatIndent(ltw, 1, "override string toString() {\n");
+		formatIndent(ltw, 2, "import std.format : format;\n");
+		formatIndent(ltw, 2, "return format(\"%%s at %%d:%%d\", super.msg, "
+			~ "this.line, this.column);\n");
+		formatIndent(ltw, 1, "}\n");
 		formatIndent(ltw, 0, "}\n");
 	}
 }
