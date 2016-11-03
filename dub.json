@@ -1,0 +1,12 @@
+{
+	"name": "darser",
+	"authors": [
+		"burner"
+	],
+	"description": "A D Parser and AST Generator.",
+	"copyright": "Copyright © 2016, burner",
+	"license": "LGPL3",
+	"dependencies": {
+		"dyaml": "~>0.5.3"
+	}
+}
