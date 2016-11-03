@@ -68,6 +68,9 @@ class Darser {
 	}
 
 	void generateClasses(File.LockingTextWriter ltw) {
+		formatIndent(ltw, 0, "module ast;\n\n");
+		formatIndent(ltw, 0, "import tokenmodule;\n\n");
+		formatIndent(ltw, 0, "import visitor;\n\n");
 		void generateEnum(File.LockingTextWriter ltw, Rule rule) {
 			formattedWrite(ltw, "enum %sEnum {\n", rule.name);
 			foreach(subRule; rule.subRules) {
@@ -89,13 +92,47 @@ class Darser {
 		}
 
 		void genereateCTors(File.LockingTextWriter ltw, Rule rule) {
-			foreach(it; rule.subRules) {
+			string[][] before;
+			outer: foreach(it; rule.subRules) {
+				string[] tmp;
+				foreach(jt; it.elements) {
+					if(jt.storeThis == StoreRulePart.yes) {
+						if(isLower(jt.name[0])) {
+							tmp ~= "Token";
+						} else {
+							tmp ~= jt.name;
+						}
+					}
+				}
+				//writefln("the list %s", tmp);
+				inner: foreach(string[] cmp; before) {
+					/*writefln("tmp [%(%s %)], cmp [%(%s %)]",
+						tmp, cmp
+					);*/
+					if(cmp.length != tmp.length) {
+						//writeln("length inner");
+						continue inner;
+					}
+					foreach(size_t idx, string kt; cmp) {
+						if(kt != tmp[idx]) {
+							//writeln("not equal length");
+							continue inner;
+						}
+					}
+					//writeln("outer");
+					continue outer;
+				}
+				before ~= tmp;
 				formattedWrite(ltw, "\tthis(%sEnum ruleSelection", rule.name);
 				foreach(jt; it.elements) {
 					if(jt.storeThis == StoreRulePart.yes) {
-						formattedWrite(ltw, ", %s %s", 
-								jt.name, jt.storeName
-						);
+						if(isLower(jt.name[0])) {
+							formattedWrite(ltw, ", Token %s", jt.storeName);
+						} else {
+							formattedWrite(ltw, ", %s %s", 
+									jt.name, jt.storeName
+							);
+						}
 					}
 				}
 				formattedWrite(ltw, ") {\n");
@@ -216,6 +253,50 @@ class Parser {
 		//writeln(this.firstSets);
 	}
 
+	void genVis(bool cns)(File.LockingTextWriter ltw, Rule rule) {
+		formatIndent(ltw, 0, "\n");
+		if(cns) {
+			formatIndent(ltw, 1, "void accept(const(%s) obj) {\n",
+				rule.name
+			);
+		} else {
+			formatIndent(ltw, 1, "void accept(%s obj) {\n",
+				rule.name
+			);
+		}
+
+		formatIndent(ltw, 2, "final switch(obj.ruleSelection) {\n");
+		foreach(subRule; rule.subRules) {
+			formatIndent(ltw, 3, "case %sEnum.%s:\n",
+				rule.name, subRule.name
+			);
+			foreach(elem; subRule.elements) {
+				if(elem.storeThis == StoreRulePart.yes) {
+					formatIndent(ltw, 4, "obj.%s.visit(this);\n",
+						elem.storeName
+					);
+				}
+			}
+			formatIndent(ltw, 4, "break;\n");
+		}
+		formatIndent(ltw, 2, "}\n");
+		formatIndent(ltw, 1, "}\n");
+	}
+
+	void genDefaultVisitor(File.LockingTextWriter ltw) {
+		formatIndent(ltw, 0, "module visitor;\n\n");
+		formatIndent(ltw, 0, "import ast;\n");
+		formatIndent(ltw, 0, "import tokenmodule;\n\n");
+		formatIndent(ltw, 0, "class Visitor {\n");
+
+		foreach(rule; this.rules) {
+			genVis!false(ltw, rule);
+			genVis!true(ltw, rule);
+		}
+
+		formatIndent(ltw, 0, "}\n");
+	}
+
 	void genRule(File.LockingTextWriter ltw, Rule rule) {
 		void genFirst(File.LockingTextWriter ltw, Rule rule) {
 			bool[string] found;
@@ -232,7 +313,7 @@ class Parser {
 					formatIndent(ltw, 3, " || ");
 				}
 				if(isLower(subRule.elements[0].name[0])) {
-					formattedWrite(ltw, "this.lex.first.type == TokenType.%s",
+					formattedWrite(ltw, "this.lex.front.type == TokenType.%s",
 						subRule.elements[0].name
 					);
 				} else {
@@ -252,8 +333,8 @@ class Parser {
 		void genTrieCtor(File.LockingTextWriter ltw, Trie t, int indent)
 				const 
 		{
-			formatIndent(ltw, indent + 1, "return new %s(%1$sEnum.%s", 
-				t.subRuleName , t.ruleName
+			formatIndent(ltw, indent + 1, "return new %s(%1$sEnum.%2$s", 
+				t.ruleName, t.subRuleName
 			);
 			foreach(kt; t.subRule.elements) {
 				if(kt.storeThis) {
@@ -261,6 +342,22 @@ class Parser {
 				}
 			}
 			formattedWrite(ltw, ");");
+		}
+
+		void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail) {
+			formatIndent(ltw, indent, 
+					"throw new ParseException(\"Was expecting an",
+			);
+			foreach(htx, ht; fail) {
+				if(htx == 0) {
+					formattedWrite(ltw, " %s", ht.value.name);
+				} else if(htx + 1 == fail.length) {
+					formattedWrite(ltw, ", or %s", ht.value.name);
+				} else {
+					formattedWrite(ltw, ", %s", ht.value.name);
+				}
+			}
+			formattedWrite(ltw, ".\", this.lex.line, this.lex.column);");
 		}
 
 		void genParse(File.LockingTextWriter ltw, const(size_t) idx,
@@ -273,16 +370,17 @@ class Parser {
 			}
 			if(isLower(t.value.name[0])) {
 				if(t.value.storeThis) {
-					formattedWrite(ltw, "Token %s = this.lex.front;\n",
-						t.value.storeName
+					formattedWrite(ltw, 
+						"if(this.lex.front.type == TokenType.%s) {\n",
+						t.value.name
 					);
-					formatIndent(ltw, indent, "if(%1$s.type == TokenType.%s) {\n",
-						t.value.storeName, t.value.name
+					formatIndent(ltw, indent + 1, "Token %s = this.lex.front;\n",
+						t.value.storeName
 					);
 					formatIndent(ltw, indent + 1, "this.lex.popFront();\n");
 				} else {
 					formattedWrite(ltw, 
-						"if(this.token.front.type == TokenType.%s) {\n",
+						"if(this.lex.front.type == TokenType.%s) {\n",
 						t.value.name
 					);
 					formatIndent(ltw, indent + 1, "this.lex.popFront();\n");
@@ -290,8 +388,12 @@ class Parser {
 				foreach(i, it; t.follow) {
 					genParse(ltw, i, t.follow.length, it, indent + 1, t.follow);
 				}
-				if(t.follow.empty) {
+				if(t.follow.empty && !t.ruleName.empty) {
 					genTrieCtor(ltw, t, indent);
+				}
+				if(t.ruleName.empty) {
+					formattedWrite(ltw, "\n");
+					genThrow(ltw, indent + 1, t.follow);
 				}
 				formattedWrite(ltw, "\n");
 			} else {
@@ -307,27 +409,17 @@ class Parser {
 				foreach(i, it; t.follow) {
 					genParse(ltw, i, t.follow.length, it, indent + 1, t.follow);
 				}
-				if(t.follow.empty) {
+				if(t.follow.empty || !t.ruleName.empty) {
+					formattedWrite(ltw, "\n");
 					genTrieCtor(ltw, t, indent);
+				}
+				if(t.ruleName.empty) {
+					formattedWrite(ltw, "\n");
+					genThrow(ltw, indent + 1, t.follow);
 				}
 				formattedWrite(ltw, "\n");
 			}
 			formatIndent(ltw, indent, "}");
-			if(idx + 1 == off) {
-				formattedWrite(ltw, "\n");
-				formatIndent(ltw, indent, "throw new Exception(\"Was expecting an");
-				foreach(htx, ht; fail) {
-					if(htx == 0) {
-						formattedWrite(ltw, " %s", ht.value.name);
-					} else if(htx + 1 == fail.length) {
-						formattedWrite(ltw, ", or %s", ht.value.name);
-					} else {
-						formattedWrite(ltw, ", %s", ht.value.name);
-					}
-				}
-				formattedWrite(ltw, ".\");");
-				
-			}
 		}
 
 		auto t = ruleToTrie(rule);
@@ -351,20 +443,126 @@ class Parser {
 		}
 			
 		formattedWrite(ltw, "\n");
+		genThrow(ltw, 2, t);
+		formattedWrite(ltw, "\n");
 		formatIndent(ltw, 1, "}\n\n");
+	}
+
+	void genParserClass(File.LockingTextWriter ltw) {
+		formatIndent(ltw, 0, "module parser;\n\n");
+		formatIndent(ltw, 0, "import ast;\n");
+		formatIndent(ltw, 0, "import tokenmodule;\n\n");
+		formatIndent(ltw, 0, "import lexer;\n\n");
+		formatIndent(ltw, 0, "import exception;\n\n");
+
+		formatIndent(ltw, 0, "class Parser {\n");
+		formatIndent(ltw, 1, "Lexer lex;\n\n");
+		formatIndent(ltw, 1, "this(Lexer lex) {\n");
+		formatIndent(ltw, 2, "this.lex = lex;\n");
+		formatIndent(ltw, 1, "}\n\n");
+		this.genRules(ltw);
+		formatIndent(ltw, 0, "}\n");
+	}
+
+	void genParseException(File.LockingTextWriter ltw) {
+		formatIndent(ltw, 0, "module exception;\n\n");
+
+		formatIndent(ltw, 0, "class ParseException : Exception {\n");
+		formatIndent(ltw, 1, "int line;\n");
+		formatIndent(ltw, 1, "int column;\n\n");
+		formatIndent(ltw, 1, "this(string msg) {\n");
+		formatIndent(ltw, 2, "super(msg);\n");
+		formatIndent(ltw, 1, "}\n\n");
+		formatIndent(ltw, 1, "this(string msg, int l, int c) {\n");
+		formatIndent(ltw, 2, "super(msg);\n");
+		formatIndent(ltw, 2, "this.line = l;\n");
+		formatIndent(ltw, 2, "this.column = c;\n");
+		formatIndent(ltw, 1, "}\n\n");
+		formatIndent(ltw, 1, 
+			"this(string msg, ParseException other) {\n"
+		);
+		formatIndent(ltw, 2, "super(msg, other);\n");
+		formatIndent(ltw, 1, "}\n\n");
+		formatIndent(ltw, 1, 
+			"this(string msg, ParseException other, int l, int c) {\n"
+		);
+		formatIndent(ltw, 2, "super(msg, other);\n");
+		formatIndent(ltw, 2, "this.line = l;\n");
+		formatIndent(ltw, 2, "this.column = c;\n");
+		formatIndent(ltw, 1, "}\n\n");
+		formatIndent(ltw, 0, "}\n");
 	}
 }
 
+
+struct Options {
+	string inputFile = "e.yaml";
+	string astOut;
+	string parserOut;
+	string visitorOut;
+	string exceptionOut;
+	bool printHelp = false;
+}
+
+const(Options) getOptions(string[] args) {
+	import std.getopt;
+	Options options;
+
+	auto rslt = getopt(args, 
+			"i|inputFile", "The grammar input file", &options.inputFile,
+			"a|astOut", "The output file for the ast node.", &options.astOut,
+			"v|visitorOut", "The output file for the visitor.",
+				&options.visitorOut,
+			"e|exceptionOut", "The output file for the ParseException.",
+				&options.exceptionOut,
+			"p|parseOut", "The output file for the parser node.",
+				&options.parserOut
+		);
+
+	if(rslt.helpWanted) {
+		defaultGetoptPrinter("", rslt.options);
+		options.printHelp = true;
+	}
+
+	return options;
+}
+
 void main(string[] args) {
-	auto darser = new Darser("e.yaml");
+	import std.array : empty;
 
-	//auto f = File("classes.d", "w");
-	darser.generateClasses(stdout.lockingTextWriter());
+	auto opts = getOptions(args);
+	if(opts.printHelp) {
+		return;
+	}
 
-	/*foreach(r; darser.rules) {
-		darser.genRule(stdout.lockingTextWriter(), r);
-	}*/
+	auto darser = new Darser(opts.inputFile);
 
-	darser.genRules(stdout.lockingTextWriter());
+	if(!opts.astOut.empty) {
+		auto f = File(opts.astOut, "w");
+		darser.generateClasses(f.lockingTextWriter());
+	} else {
+		darser.generateClasses(stdout.lockingTextWriter());
+	}
+
+	if(!opts.parserOut.empty) {
+		auto f = File(opts.parserOut, "w");
+		darser.genParserClass(f.lockingTextWriter());
+	} else {
+		darser.genParserClass(stdout.lockingTextWriter());
+	}
+
+	if(!opts.visitorOut.empty) {
+		auto f = File(opts.visitorOut, "w");
+		darser.genDefaultVisitor(f.lockingTextWriter());
+	} else {
+		darser.genDefaultVisitor(stdout.lockingTextWriter());
+	}
+
+	if(!opts.exceptionOut.empty) {
+		auto f = File(opts.exceptionOut, "w");
+		darser.genParseException(f.lockingTextWriter());
+	} else {
+		darser.genParseException(stdout.lockingTextWriter());
+	}
 }
 

@@ -2,6 +2,8 @@ module trie;
 
 import rules;
 
+import std.stdio;
+
 class Trie {
 	import std.array : appender, Appender;
 	Trie[] follow;
@@ -44,29 +46,63 @@ class Trie {
 	}
 }
 
+void printTrie(Trie t, int indent) {
+	import std.stdio;
+	for(int i = 0; i < indent; ++i) {
+		write(" ");
+	}
+	if(t.value !is null) {
+		writefln("%s %s", t.value.name, t.ruleName);
+	} else {
+		writeln(t.ruleName);
+	}
+
+	foreach(it; t.follow) {
+		printTrie(it, indent + 1);
+	}
+}
+
 Trie[] ruleToTrie(Rule rule) {
 	import std.array : back;
+	import std.uni : isUpper;
 	auto ret = new Trie;
 
 	foreach(subRule; rule.subRules) {
+		writefln("sr %s ret.length %s", subRule, ret.follow.length);
 		Trie cur = ret;
-		middle: foreach(rp; subRule.elements) {
-			Trie follow = null;
+		middle: foreach(idx, rp; subRule.elements) {
+			writefln("rp.name %s", rp.name);
 			foreach(elem; cur.follow) {
-				if(elem.value.name == rp.name) {
+				if(isUpper(rp.name[0]) && elem.value.name == rp.name) {
+					writefln("\tfoo %s", rp.name);
+					cur = elem;
+					continue middle;
+				} else if(elem.value.name == rp.name 
+						&& elem.value.storeName == rp.storeName)
+				{
+					writefln("\tbar %s", rp.name);
 					cur = elem;
 					continue middle;
 				}
 			}
-			if(follow is null) {
-				cur.follow ~= new Trie(rp);
-				cur.follow.back.subRule = subRule;
-				cur.follow.back.ruleName = rule.name;
-				cur = cur.follow.back;
+
+			writefln("bar.name %s", rp.name);
+			auto ne = new Trie(rp);
+			ne.subRule = subRule;
+			if(idx + 1 == subRule.elements.length) {
+				ne.ruleName = rule.name;
 			}
+
+			cur.follow ~= ne;
+			cur = ne;
 		}
 		cur.subRuleName = subRule.name;
 	}
 
+	printTrie(ret, 0);
+	//writefln("ret: %s", ret.toString());
+	//foreach(it; ret.follow) {
+	//	writefln("\t%s", it.value.name);
+	//}
 	return ret.follow;
 }
