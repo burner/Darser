@@ -346,7 +346,7 @@ class Parser {
 
 		void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail) {
 			formatIndent(ltw, indent, 
-					"throw new ParseException(\"Was expecting an",
+					"throw new ParseException(format(\"Was expecting an",
 			);
 			foreach(htx, ht; fail) {
 				if(htx == 0) {
@@ -357,7 +357,8 @@ class Parser {
 					formattedWrite(ltw, ", %s", ht.value.name);
 				}
 			}
-			formattedWrite(ltw, ".\", this.lex.line, this.lex.column);");
+			formattedWrite(ltw, ". Found a '%%s' at %%s:%%s.\", "
+				~"this.lex.front.type,this.lex.line, this.lex.column));");
 		}
 
 		void genParse(File.LockingTextWriter ltw, const(size_t) idx,
@@ -450,6 +451,7 @@ class Parser {
 
 	void genParserClass(File.LockingTextWriter ltw) {
 		formatIndent(ltw, 0, "module parser;\n\n");
+		formatIndent(ltw, 0, "import std.format : format;\n");
 		formatIndent(ltw, 0, "import ast;\n");
 		formatIndent(ltw, 0, "import tokenmodule;\n\n");
 		formatIndent(ltw, 0, "import lexer;\n\n");
