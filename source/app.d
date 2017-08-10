@@ -69,6 +69,7 @@ class Darser {
 
 	void generateClasses(File.LockingTextWriter ltw) {
 		formatIndent(ltw, 0, "module ast;\n\n");
+		formatIndent(ltw, 0, "import std.typecons : RefCounted, refCounted;\n\n");
 		formatIndent(ltw, 0, "import tokenmodule;\n\n");
 		formatIndent(ltw, 0, "import visitor;\n\n");
 		void generateEnum(File.LockingTextWriter ltw, Rule rule) {
@@ -177,6 +178,7 @@ class Darser {
 		formattedWrite(ltw, 
 `module parser;
 
+import std.typecons : RefCounted, refCounted;
 import lexer;
 
 class Parser {
@@ -286,9 +288,10 @@ class Parser {
 
 	void genDefaultVisitor(File.LockingTextWriter ltw) {
 		formatIndent(ltw, 0, "module visitor;\n\n");
+		formatIndent(ltw, 0, "import std.typecons : RefCounted, refCounted;\n\n");
 		formatIndent(ltw, 0, "import ast;\n");
 		formatIndent(ltw, 0, "import tokenmodule;\n\n");
-		formatIndent(ltw, 0, "class Visitor {\n");
+		formatIndent(ltw, 0, "struct Visitor {\n");
 
 		foreach(rule; this.rules) {
 			genVis!false(ltw, rule);
@@ -349,9 +352,8 @@ class Parser {
 		}
 
 		void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail) {
-			formatIndent(ltw, indent, 
-					"throw new ParseException(format(\"Was expecting an",
-			);
+			formatIndent(ltw, indent, "throw new ParseException(format(\n");
+			formatIndent(ltw, indent + 1, "\"Was expecting an");
 			foreach(htx, ht; fail) {
 				if(htx == 0) {
 					formattedWrite(ltw, " %s", ht.value.name);
@@ -361,8 +363,9 @@ class Parser {
 					formattedWrite(ltw, ", %s", ht.value.name);
 				}
 			}
-			formattedWrite(ltw, ". Found a '%%s' at %%s:%%s.\", "
-				~"this.lex.front.type,this.lex.line, this.lex.column));");
+			formattedWrite(ltw, ". Found a '%%s' at %%s:%%s.\", \n");
+			formatIndent(ltw, indent + 1, "this.lex.front.type,this.lex.line, this.lex.column)\n");
+			formatIndent(ltw, indent, ");\n");
 		}
 
 		void genParse(File.LockingTextWriter ltw, const(size_t) idx,
@@ -455,13 +458,14 @@ class Parser {
 
 	void genParserClass(File.LockingTextWriter ltw) {
 		formatIndent(ltw, 0, "module parser;\n\n");
+		formatIndent(ltw, 0, "import std.typecons : RefCounted, refCounted;\n");
 		formatIndent(ltw, 0, "import std.format : format;\n");
 		formatIndent(ltw, 0, "import ast;\n");
 		formatIndent(ltw, 0, "import tokenmodule;\n\n");
 		formatIndent(ltw, 0, "import lexer;\n\n");
 		formatIndent(ltw, 0, "import exception;\n\n");
 
-		formatIndent(ltw, 0, "class Parser {\n");
+		formatIndent(ltw, 0, "struct Parser {\n");
 		formatIndent(ltw, 1, "Lexer lex;\n\n");
 		formatIndent(ltw, 1, "this(Lexer lex) {\n");
 		formatIndent(ltw, 2, "this.lex = lex;\n");
