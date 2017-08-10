@@ -85,7 +85,7 @@ class Darser {
 				if(!value.name.empty && isLower(value.name[0])) {
 					formattedWrite(ltw, "\tToken %s;\n", key);
 				} else {
-					formattedWrite(ltw, "\t%s %s;\n", value.name, key);
+					formattedWrite(ltw, "\t%sPtr %s;\n", value.name, key);
 				}
 			}
 			formattedWrite(ltw, "\n");
@@ -129,7 +129,7 @@ class Darser {
 						if(isLower(jt.name[0])) {
 							formattedWrite(ltw, ", Token %s", jt.storeName);
 						} else {
-							formattedWrite(ltw, ", %s %s", 
+							formattedWrite(ltw, ", %sPtr %s", 
 									jt.name, jt.storeName
 							);
 						}
@@ -150,11 +150,11 @@ class Darser {
 
 		void generateVisitor(File.LockingTextWriter ltw, Rule rule) {
 			formattedWrite(ltw, 
-`	final void visit(Visitor vis) {
+`	void visit(Visitor vis) {
 		vis.accept(this);
 	}
 
-	final void visit(Visitor vis) const {
+	void visit(Visitor vis) const {
 		vis.accept(this);
 	}
 `
@@ -163,12 +163,13 @@ class Darser {
 		}
 		foreach(rule; this.rules) {
 			generateEnum(ltw, rule);
-			formattedWrite(ltw, "class %s {\n", rule.name);	
+			formattedWrite(ltw, "struct %s {\n", rule.name);	
 			formattedWrite(ltw, "\t%sEnum ruleSelection;\n", rule.name);	
 			generateMembers(ltw, rule);
 			genereateCTors(ltw, rule);
 			generateVisitor(ltw, rule);
 			formattedWrite(ltw, "}\n\n");	
+			formattedWrite(ltw, "alias %1$sPtr = RefCounted!(%1$s);\n\n", rule.name);	
 		}
 	}
 
@@ -333,7 +334,10 @@ class Parser {
 		void genTrieCtor(File.LockingTextWriter ltw, Trie t, int indent)
 				const 
 		{
-			formatIndent(ltw, indent + 1, "return new %s(%1$sEnum.%2$s", 
+			//formatIndent(ltw, indent + 1, "return new %s(%1$sEnum.%2$s", 
+			//	t.ruleName, t.subRuleName
+			//);
+			formatIndent(ltw, indent + 1, "return refCounted!(%s)(%1$sEnum.%2$s", 
 				t.ruleName, t.subRuleName
 			);
 			foreach(kt; t.subRule.elements) {
@@ -427,7 +431,7 @@ class Parser {
 		foreach(it; t) {
 			writeln(it.toString());
 		}
-		formatIndent(ltw, 1, "%1$s parse%1$s() {\n", rule.name);
+		formatIndent(ltw, 1, "%1$sPtr parse%1$s() {\n", rule.name);
 		formatIndent(ltw, 2, "try {\n");
 		formatIndent(ltw, 3, "return this.parse%sImpl();\n", rule.name);
 		formatIndent(ltw, 2, "} catch(ParseException e) {\n");
@@ -438,7 +442,7 @@ class Parser {
 		formatIndent(ltw, 2, "}\n");
 		formatIndent(ltw, 1, "}\n\n");
 
-		formatIndent(ltw, 1, "%1$s parse%1$sImpl() {\n", rule.name);
+		formatIndent(ltw, 1, "%1$sPtr parse%1$sImpl() {\n", rule.name);
 		foreach(i, it; t) {
 			genParse(ltw, i, t.length, it, 2, t);
 		}
