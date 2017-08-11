@@ -13,4 +13,4 @@
 #    Parenthesis: [lparen, Expression#expr, rparen]
 
 List:
-    L: [ lparen#lp, PrimaryExpression#pe, REPEATS, comma, PrimaryExpression#pe, REPEATSTOP, rparen ]
+    L: [ lparen#lp, PrimaryExpression#pe, rparen]

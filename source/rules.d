@@ -12,6 +12,7 @@ class RulePart {
 	StoreRulePart storeThis;	
 	string name;
 	string storeName;
+	bool onlyIf;
 
 	this(string name) {
 		this.name = name;

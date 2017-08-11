@@ -71,9 +71,12 @@ class Darser {
 		return ret;
 	}
 
-	void generateClasses(File.LockingTextWriter ltw) {
+	void generateClasses(File.LockingTextWriter ltw, bool customParseFunctions) {
 		formatIndent(ltw, 0, "module ast;\n\n");
 		formatIndent(ltw, 0, "import std.typecons : RefCounted, refCounted;\n\n");
+		if(customParseFunctions) {
+			formatIndent(ltw, 0, "public import astcustom;\n\n");
+		}
 		formatIndent(ltw, 0, "import tokenmodule;\n\n");
 		formatIndent(ltw, 0, "import visitor;\n\n");
 		void generateEnum(File.LockingTextWriter ltw, Rule rule) {
@@ -171,8 +174,8 @@ class Darser {
 			formattedWrite(ltw, "struct %s {\n", rule.name);	
 			formattedWrite(ltw, "\t%sEnum ruleSelection;\n", rule.name);	
 			generateMembers(ltw, rule);
-			genereateCTors(ltw, rule);
-			generateVisitor(ltw, rule);
+			//genereateCTors(ltw, rule);
+			//generateVisitor(ltw, rule);
 			formattedWrite(ltw, "}\n\n");	
 			formattedWrite(ltw, "alias %1$sPtr = RefCounted!(%1$s);\n\n", rule.name);	
 		}
@@ -306,29 +309,27 @@ class Parser {
 	}
 
 	void genParse(File.LockingTextWriter ltw, const(size_t) idx,
-			const(size_t) off, Trie t, int indent, Trie[] fail,
-			bool isInRepeat = false)
+			const(size_t) off, Trie t, int indent, Trie[] fail)
 	{
-		if(t.value.isRepeatStop()) {
-			return;
-		}
 		if(idx > 0) {
 			formattedWrite(ltw, " else ");
-			if(t.value.isRepeatStart()) {
-				genParseRepeat(ltw, idx, off, t, indent, fail);
-			}
 		} else {
 			this.genIndent(ltw, indent);
-			if(t.value.isRepeatStart()) {
-				genParseRepeat(ltw, idx, off, t, indent, fail);
-				indent -= 1;
-				this.genIndent(ltw, indent);
-			}
+		}
+
+		bool isRepeat = false;
+		string prefix = "if";
+
+		if(t.value.isRepeatStart()) {
+			isRepeat = true;
+			prefix = "while";
+			t = t.follow[0];
+			fail = t.follow;
 		}
 		if(isLower(t.value.name[0]) && !t.value.isRepeatStop()) {
 			formattedWrite(ltw, 
-				"if(this.lex.front.type == TokenType.%s) {\n",
-				t.value.name
+				"%s(this.lex.front.type == TokenType.%s) {\n",
+				prefix, t.value.name
 			);
 			if(t.value.storeThis) {
 				formatIndent(ltw, indent + 1, "ret.%s = this.lex.front;\n",
@@ -337,7 +338,7 @@ class Parser {
 			}
 			formatIndent(ltw, indent + 1, "this.lex.popFront();\n");
 		} else if(!t.value.isRepeatStop()) {
-			formattedWrite(ltw, "if(this.first%s()) {\n", t.value.name);
+			formattedWrite(ltw, "%s(this.first%s()) {\n", prefix, t.value.name);
 			this.genIndent(ltw, indent + 1);
 			if(t.value.storeThis) {
 				formattedWrite(ltw, "ret.%2$s = this.parse%1$s();\n",
@@ -351,12 +352,7 @@ class Parser {
 		}
 
 		foreach(i, it; t.follow) {
-			genParse(ltw, i, t.follow.length, it, indent + 1, t.follow,
-					isInRepeat
-				);
-			if(isInRepeat) {
-				break;
-			}
+			genParse(ltw, i, t.follow.length, it, indent + 1, t.follow);
 		}
 		
 		if(t.follow.empty && !t.ruleName.empty) {
@@ -366,99 +362,8 @@ class Parser {
 			formattedWrite(ltw, "\n");
 			genThrow(ltw, indent + 1, t.follow);
 		}
-		if(!isInRepeat) {
-			formattedWrite(ltw, "\n");
-			formatIndent(ltw, indent, "}");
-		}
-	}
-
-	void genParseRepeatRecur(File.LockingTextWriter ltw, const(size_t) idx,
-			const(size_t) off, ref Trie t, int indent, ref Trie[] fail) 
-	{
-		if(t.value.isRepeatStop()) {
-			return;
-		}
-		this.genIndent(ltw, indent);
-		if(isLower(t.value.name[0]) && !t.value.isRepeatStop()) {
-			formattedWrite(ltw, 
-				"if(this.lex.front.type == TokenType.%s) {\n",
-				t.value.name
-			);
-			if(t.value.storeThis) {
-				formatIndent(ltw, indent + 1, "ret.%s = this.lex.front;\n",
-					t.value.storeName
-				);
-			}
-			formatIndent(ltw, indent + 1, "this.lex.popFront();\n");
-		} else if(!t.value.isRepeatStop()) {
-			formattedWrite(ltw, "if(this.first%s()) {\n", t.value.name);
-			this.genIndent(ltw, indent + 1);
-			if(t.value.storeThis) {
-				formattedWrite(ltw, "ret.%2$s ~= this.parse%1$s();\n",
-						t.value.name, t.value.storeName
-				);
-			} else {
-				formattedWrite(ltw, "this.parse%s();\n", t.value.name);
-			}
-		} else {
-			formattedWrite(ltw, "\n");
-		}
-
-		if(!t.follow.empty) {
-			genParseRepeatRecur(ltw, 0, t.follow[0].follow.length, t.follow[0], indent + 1,
-					t.follow[0].follow
-				);
-		}
-		
-		if(t.follow.empty && !t.ruleName.empty) {
-			genTrieCtor(ltw, t, indent);
-		}
-		if(t.ruleName.empty) {
-			formattedWrite(ltw, "\n");
-			genThrow(ltw, indent + 1, t.follow);
-		}
-		//formattedWrite(ltw, "\n");
-		//formatIndent(ltw, indent, "}");
-	}
-
-	void genParseRepeat(File.LockingTextWriter ltw, const(size_t) idx,
-			const(size_t) off, ref Trie t, int indent, ref Trie[] fail) 
-	{
-		t = t.follow[0]; // EAT REPEATS
-		if(isLower(t.value.name[0])) {
-			formattedWrite(ltw, 
-				"while(this.lex.front.type == TokenType.%s) {\n",
-				t.value.name
-			);
-			if(t.value.storeThis) {
-				formatIndent(ltw, indent + 1, "ret.%s = this.lex.front;\n",
-					t.value.storeName
-				);
-			}
-			formatIndent(ltw, indent + 1, "this.lex.popFront();\n");
-		} else {
-			formattedWrite(ltw, "while(this.first%s()) {\n", t.value.name);
-			this.genIndent(ltw, indent + 1);
-			if(t.value.storeThis) {
-				formattedWrite(ltw, "ret.%2$s = this.parse%1$s();\n",
-						t.value.name, t.value.storeName
-				);
-			} else {
-				formattedWrite(ltw, "this.parse%s();\n", t.value.name);
-			}
-		}
-		genParseRepeatRecur(ltw, 0, t.follow[0].follow.length, t.follow[0], indent + 1,
-				t.follow[0].follow
-			);
-		genThrow(ltw, indent, fail);
-		while(!t.value.isRepeatStop()) {
-			t = t.follow[0];
-		}
-		//t = t.follow[0];
-		//fail = t.follow;
-
 		formattedWrite(ltw, "\n");
-		formatIndent(ltw, indent, "}\n");
+		formatIndent(ltw, indent, "}");
 	}
 
 	void genFirst(File.LockingTextWriter ltw, Rule rule) {
@@ -551,11 +456,14 @@ class Parser {
 		formatIndent(ltw, 1, "}\n\n");
 	}
 
-	void genParserClass(File.LockingTextWriter ltw) {
+	void genParserClass(File.LockingTextWriter ltw, bool customParseFunctions) {
 		formatIndent(ltw, 0, "module parser;\n\n");
 		formatIndent(ltw, 0, "import std.typecons : RefCounted, refCounted;\n");
 		formatIndent(ltw, 0, "import std.format : format;\n");
 		formatIndent(ltw, 0, "import ast;\n");
+		if(customParseFunctions) {
+			formatIndent(ltw, 0, "public import parsercustom;\n\n");
+		}
 		formatIndent(ltw, 0, "import tokenmodule;\n\n");
 		formatIndent(ltw, 0, "import lexer;\n\n");
 		formatIndent(ltw, 0, "import exception;\n\n");
@@ -612,6 +520,7 @@ struct Options {
 	string visitorOut;
 	string exceptionOut;
 	bool printHelp = false;
+	bool customParseFunctions;
 }
 
 const(Options) getOptions(string[] args) {
@@ -626,7 +535,9 @@ const(Options) getOptions(string[] args) {
 			"e|exceptionOut", "The output file for the ParseException.",
 				&options.exceptionOut,
 			"p|parseOut", "The output file for the parser node.",
-				&options.parserOut
+				&options.parserOut,
+			"c|custom", "Pass if you want/need to provide custom parse functions.",
+				&options.customParseFunctions
 		);
 
 	if(rslt.helpWanted) {
@@ -649,16 +560,19 @@ void main(string[] args) {
 
 	if(!opts.astOut.empty) {
 		auto f = File(opts.astOut, "w");
-		darser.generateClasses(f.lockingTextWriter());
+		darser.generateClasses(f.lockingTextWriter(),
+				opts.customParseFunctions);
 	} else {
-		darser.generateClasses(stdout.lockingTextWriter());
+		darser.generateClasses(stdout.lockingTextWriter(),
+				opts.customParseFunctions);
 	}
 
 	if(!opts.parserOut.empty) {
 		auto f = File(opts.parserOut, "w");
-		darser.genParserClass(f.lockingTextWriter());
+		darser.genParserClass(f.lockingTextWriter(), opts.customParseFunctions);
 	} else {
-		darser.genParserClass(stdout.lockingTextWriter());
+		darser.genParserClass(stdout.lockingTextWriter(),
+				opts.customParseFunctions);
 	}
 
 	if(!opts.visitorOut.empty) {
