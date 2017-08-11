@@ -32,6 +32,14 @@ class RulePart {
 		return this.name.front.isLower();
 	}
 
+	bool isRepeatStart() pure const @safe {
+		return this.name == "REPEATS";
+	}
+
+	bool isRepeatStop() pure const @safe {
+		return this.name == "REPEATSTOP";
+	}
+
 	override string toString() pure const @safe {
 		if(this.storeThis == StoreRulePart.yes) {
 			return format("%s#%s", this.name, this.storeName);

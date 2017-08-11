@@ -1,7 +1,7 @@
 import std.stdio;
-import dyaml.all;
+import dyaml;
 
-import std.array : back, front;
+import std.array : back, front, empty;
 
 import rules;
 import trie;
@@ -15,6 +15,10 @@ void formatIndent(O,Args...)(ref O o, long indent, string str,
 		--indent;
 	}
 	formattedWrite(o, str, args);
+}
+
+interface IDarser {
+
 }
 
 class Darser {
@@ -301,135 +305,225 @@ class Parser {
 		formatIndent(ltw, 0, "}\n");
 	}
 
-	void genRule(File.LockingTextWriter ltw, Rule rule) {
-		void genFirst(File.LockingTextWriter ltw, Rule rule) {
-			bool[string] found;
-			formatIndent(ltw, 1, "bool first%s() const {\n", rule.name);
-			formatIndent(ltw, 2, "return ");
-
-			bool first = true;
-			foreach(subRule; rule.subRules) {
-				if(subRule.elements[0].name in found) {
-					continue;
-				}
-				if(!first) {
-					formattedWrite(ltw, "\n");
-					formatIndent(ltw, 3, " || ");
-				}
-				if(isLower(subRule.elements[0].name[0])) {
-					formattedWrite(ltw, "this.lex.front.type == TokenType.%s",
-						subRule.elements[0].name
-					);
-				} else {
-					formattedWrite(ltw, "this.first%s()",
-						subRule.elements[0].name
-					);
-
-				}
-				found[subRule.elements[0].name] = true;
-				first = false;
-			}
-			formattedWrite(ltw, ";\n\t}\n\n");
+	void genParse(File.LockingTextWriter ltw, const(size_t) idx,
+			const(size_t) off, Trie t, int indent, Trie[] fail,
+			bool isInRepeat = false)
+	{
+		if(t.value.isRepeatStop()) {
+			return;
 		}
-
-		genFirst(ltw, rule);
-
-		void genTrieCtor(File.LockingTextWriter ltw, Trie t, int indent)
-				const 
-		{
-			//formatIndent(ltw, indent + 1, "return new %s(%1$sEnum.%2$s", 
-			//	t.ruleName, t.subRuleName
-			//);
-			formatIndent(ltw, indent + 1, "return refCounted!(%s)(%1$sEnum.%2$s", 
-				t.ruleName, t.subRuleName
-			);
-			foreach(kt; t.subRule.elements) {
-				if(kt.storeThis) {
-					formattedWrite(ltw, ", %s", kt.storeName);
-				}
+		if(idx > 0) {
+			formattedWrite(ltw, " else ");
+			if(t.value.isRepeatStart()) {
+				genParseRepeat(ltw, idx, off, t, indent, fail);
 			}
-			formattedWrite(ltw, ");");
-		}
-
-		void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail) {
-			formatIndent(ltw, indent, "throw new ParseException(format(\n");
-			formatIndent(ltw, indent + 1, "\"Was expecting an");
-			foreach(htx, ht; fail) {
-				if(htx == 0) {
-					formattedWrite(ltw, " %s", ht.value.name);
-				} else if(htx + 1 == fail.length) {
-					formattedWrite(ltw, ", or %s", ht.value.name);
-				} else {
-					formattedWrite(ltw, ", %s", ht.value.name);
-				}
-			}
-			formattedWrite(ltw, ". Found a '%%s' at %%s:%%s.\", \n");
-			formatIndent(ltw, indent + 1, "this.lex.front.type,this.lex.line, this.lex.column)\n");
-			formatIndent(ltw, indent, ");\n");
-		}
-
-		void genParse(File.LockingTextWriter ltw, const(size_t) idx,
-				const(size_t) off, Trie t, int indent, Trie[] fail) 
-		{
-			if(idx > 0) {
-				formattedWrite(ltw, " else ");
-			} else {
+		} else {
+			this.genIndent(ltw, indent);
+			if(t.value.isRepeatStart()) {
+				genParseRepeat(ltw, idx, off, t, indent, fail);
+				indent -= 1;
 				this.genIndent(ltw, indent);
 			}
-			if(isLower(t.value.name[0])) {
-				if(t.value.storeThis) {
-					formattedWrite(ltw, 
-						"if(this.lex.front.type == TokenType.%s) {\n",
-						t.value.name
-					);
-					formatIndent(ltw, indent + 1, "Token %s = this.lex.front;\n",
-						t.value.storeName
-					);
-					formatIndent(ltw, indent + 1, "this.lex.popFront();\n");
-				} else {
-					formattedWrite(ltw, 
-						"if(this.lex.front.type == TokenType.%s) {\n",
-						t.value.name
-					);
-					formatIndent(ltw, indent + 1, "this.lex.popFront();\n");
-				}
-				foreach(i, it; t.follow) {
-					genParse(ltw, i, t.follow.length, it, indent + 1, t.follow);
-				}
-				if(t.follow.empty && !t.ruleName.empty) {
-					genTrieCtor(ltw, t, indent);
-				}
-				if(t.ruleName.empty) {
-					formattedWrite(ltw, "\n");
-					genThrow(ltw, indent + 1, t.follow);
-				}
-				formattedWrite(ltw, "\n");
-			} else {
-				formattedWrite(ltw, "if(this.first%s()) {\n", t.value.name);
-				this.genIndent(ltw, indent + 1);
-				if(t.value.storeThis) {
-					formattedWrite(ltw, "%1$s %2$s = this.parse%1$s();\n",
-							t.value.name, t.value.storeName
-					);
-				} else {
-					formattedWrite(ltw, "this.parse%s();\n", t.value.name);
-				}
-				foreach(i, it; t.follow) {
-					genParse(ltw, i, t.follow.length, it, indent + 1, t.follow);
-				}
-				if(t.follow.empty || !t.ruleName.empty) {
-					formattedWrite(ltw, "\n");
-					genTrieCtor(ltw, t, indent);
-				}
-				if(t.ruleName.empty) {
-					formattedWrite(ltw, "\n");
-					genThrow(ltw, indent + 1, t.follow);
-				}
-				formattedWrite(ltw, "\n");
+		}
+		if(isLower(t.value.name[0]) && !t.value.isRepeatStop()) {
+			formattedWrite(ltw, 
+				"if(this.lex.front.type == TokenType.%s) {\n",
+				t.value.name
+			);
+			if(t.value.storeThis) {
+				formatIndent(ltw, indent + 1, "ret.%s = this.lex.front;\n",
+					t.value.storeName
+				);
 			}
-			formatIndent(ltw, indent, "}");
+			formatIndent(ltw, indent + 1, "this.lex.popFront();\n");
+		} else if(!t.value.isRepeatStop()) {
+			formattedWrite(ltw, "if(this.first%s()) {\n", t.value.name);
+			this.genIndent(ltw, indent + 1);
+			if(t.value.storeThis) {
+				formattedWrite(ltw, "ret.%2$s = this.parse%1$s();\n",
+						t.value.name, t.value.storeName
+				);
+			} else {
+				formattedWrite(ltw, "this.parse%s();\n", t.value.name);
+			}
+		} else {
+			formattedWrite(ltw, "\n");
 		}
 
+		foreach(i, it; t.follow) {
+			genParse(ltw, i, t.follow.length, it, indent + 1, t.follow,
+					isInRepeat
+				);
+			if(isInRepeat) {
+				break;
+			}
+		}
+		
+		if(t.follow.empty && !t.ruleName.empty) {
+			genTrieCtor(ltw, t, indent);
+		}
+		if(t.ruleName.empty) {
+			formattedWrite(ltw, "\n");
+			genThrow(ltw, indent + 1, t.follow);
+		}
+		if(!isInRepeat) {
+			formattedWrite(ltw, "\n");
+			formatIndent(ltw, indent, "}");
+		}
+	}
+
+	void genParseRepeatRecur(File.LockingTextWriter ltw, const(size_t) idx,
+			const(size_t) off, ref Trie t, int indent, ref Trie[] fail) 
+	{
+		if(t.value.isRepeatStop()) {
+			return;
+		}
+		this.genIndent(ltw, indent);
+		if(isLower(t.value.name[0]) && !t.value.isRepeatStop()) {
+			formattedWrite(ltw, 
+				"if(this.lex.front.type == TokenType.%s) {\n",
+				t.value.name
+			);
+			if(t.value.storeThis) {
+				formatIndent(ltw, indent + 1, "ret.%s = this.lex.front;\n",
+					t.value.storeName
+				);
+			}
+			formatIndent(ltw, indent + 1, "this.lex.popFront();\n");
+		} else if(!t.value.isRepeatStop()) {
+			formattedWrite(ltw, "if(this.first%s()) {\n", t.value.name);
+			this.genIndent(ltw, indent + 1);
+			if(t.value.storeThis) {
+				formattedWrite(ltw, "ret.%2$s ~= this.parse%1$s();\n",
+						t.value.name, t.value.storeName
+				);
+			} else {
+				formattedWrite(ltw, "this.parse%s();\n", t.value.name);
+			}
+		} else {
+			formattedWrite(ltw, "\n");
+		}
+
+		if(!t.follow.empty) {
+			genParseRepeatRecur(ltw, 0, t.follow[0].follow.length, t.follow[0], indent + 1,
+					t.follow[0].follow
+				);
+		}
+		
+		if(t.follow.empty && !t.ruleName.empty) {
+			genTrieCtor(ltw, t, indent);
+		}
+		if(t.ruleName.empty) {
+			formattedWrite(ltw, "\n");
+			genThrow(ltw, indent + 1, t.follow);
+		}
+		//formattedWrite(ltw, "\n");
+		//formatIndent(ltw, indent, "}");
+	}
+
+	void genParseRepeat(File.LockingTextWriter ltw, const(size_t) idx,
+			const(size_t) off, ref Trie t, int indent, ref Trie[] fail) 
+	{
+		t = t.follow[0]; // EAT REPEATS
+		if(isLower(t.value.name[0])) {
+			formattedWrite(ltw, 
+				"while(this.lex.front.type == TokenType.%s) {\n",
+				t.value.name
+			);
+			if(t.value.storeThis) {
+				formatIndent(ltw, indent + 1, "ret.%s = this.lex.front;\n",
+					t.value.storeName
+				);
+			}
+			formatIndent(ltw, indent + 1, "this.lex.popFront();\n");
+		} else {
+			formattedWrite(ltw, "while(this.first%s()) {\n", t.value.name);
+			this.genIndent(ltw, indent + 1);
+			if(t.value.storeThis) {
+				formattedWrite(ltw, "ret.%2$s = this.parse%1$s();\n",
+						t.value.name, t.value.storeName
+				);
+			} else {
+				formattedWrite(ltw, "this.parse%s();\n", t.value.name);
+			}
+		}
+		genParseRepeatRecur(ltw, 0, t.follow[0].follow.length, t.follow[0], indent + 1,
+				t.follow[0].follow
+			);
+		genThrow(ltw, indent, fail);
+		while(!t.value.isRepeatStop()) {
+			t = t.follow[0];
+		}
+		//t = t.follow[0];
+		//fail = t.follow;
+
+		formattedWrite(ltw, "\n");
+		formatIndent(ltw, indent, "}\n");
+	}
+
+	void genFirst(File.LockingTextWriter ltw, Rule rule) {
+		bool[string] found;
+		formatIndent(ltw, 1, "bool first%s() const {\n", rule.name);
+		formatIndent(ltw, 2, "return ");
+
+		bool first = true;
+		foreach(subRule; rule.subRules) {
+			if(subRule.elements[0].name in found) {
+				continue;
+			}
+			if(!first) {
+				formattedWrite(ltw, "\n");
+				formatIndent(ltw, 3, " || ");
+			}
+			if(isLower(subRule.elements[0].name[0])) {
+				formattedWrite(ltw, "this.lex.front.type == TokenType.%s",
+					subRule.elements[0].name
+				);
+			} else {
+				formattedWrite(ltw, "this.first%s()",
+					subRule.elements[0].name
+				);
+
+			}
+			found[subRule.elements[0].name] = true;
+			first = false;
+		}
+		formattedWrite(ltw, ";\n\t}\n\n");
+	}
+
+	void genTrieCtor(File.LockingTextWriter ltw, Trie t, int indent)
+			const 
+	{
+		formatIndent(ltw, indent + 1, "ret.ruleSelection = %1$sEnum.%2$s;\n", 
+			t.ruleName, t.subRuleName
+		);
+		formatIndent(ltw, indent + 1, "return ret;");
+	}
+
+	void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail) {
+		foreach(htx, ht; fail) {
+			if(ht.value.isRepeatStart() || ht.value.isRepeatStop()) {
+				return;
+			}
+		}
+		formatIndent(ltw, indent, "throw new ParseException(format(\n");
+		formatIndent(ltw, indent + 1, "\"Was expecting an");
+		foreach(htx, ht; fail) {
+			if(htx == 0) {
+				formattedWrite(ltw, " %s", ht.value.name);
+			} else if(htx + 1 == fail.length) {
+				formattedWrite(ltw, ", or %s", ht.value.name);
+			} else {
+				formattedWrite(ltw, ", %s", ht.value.name);
+			}
+		}
+		formattedWrite(ltw, ". Found a '%%s' at %%s:%%s.\", \n");
+		formatIndent(ltw, indent + 1, "this.lex.front.type,this.lex.line, this.lex.column)\n");
+		formatIndent(ltw, indent, ");");
+	}
+
+	void genRule(File.LockingTextWriter ltw, Rule rule) {
+		genFirst(ltw, rule);
 		auto t = ruleToTrie(rule);
 		foreach(it; t) {
 			writeln(it.toString());
@@ -446,6 +540,7 @@ class Parser {
 		formatIndent(ltw, 1, "}\n\n");
 
 		formatIndent(ltw, 1, "%1$sPtr parse%1$sImpl() {\n", rule.name);
+		formatIndent(ltw, 2, "%1$sPtr ret = refCounted!%1$s();\n", rule.name);
 		foreach(i, it; t) {
 			genParse(ltw, i, t.length, it, 2, t);
 		}
