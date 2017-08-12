@@ -445,7 +445,7 @@ class Parser {
 		formatIndent(ltw, 1, "}\n\n");
 
 		formatIndent(ltw, 1, "%1$sPtr parse%1$sImpl() {\n", rule.name);
-		formatIndent(ltw, 2, "%1$sPtr ret = refCounted!%1$s();\n", rule.name);
+		formatIndent(ltw, 2, "%1$sPtr ret = refCounted!%1$s(%1$s());\n", rule.name);
 		foreach(i, it; t) {
 			genParse(ltw, i, t.length, it, 2, t);
 		}
