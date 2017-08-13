@@ -78,7 +78,7 @@ class Darser {
 			formatIndent(ltw, 0, "public import astcustom;\n\n");
 		}
 		formatIndent(ltw, 0, "import tokenmodule;\n\n");
-		formatIndent(ltw, 0, "import visitor;\n\n");
+		//formatIndent(ltw, 0, "import visitor;\n\n");
 		void generateEnum(File.LockingTextWriter ltw, Rule rule) {
 			formattedWrite(ltw, "enum %sEnum {\n", rule.name);
 			foreach(subRule; rule.subRules) {
@@ -294,7 +294,7 @@ class Parser {
 	}
 
 	void genDefaultVisitor(File.LockingTextWriter ltw) {
-		formatIndent(ltw, 0, "module visitor;\n\n");
+		//formatIndent(ltw, 0, "module visitor;\n\n");
 		formatIndent(ltw, 0, "import std.typecons : RefCounted, refCounted;\n\n");
 		formatIndent(ltw, 0, "import ast;\n");
 		formatIndent(ltw, 0, "import tokenmodule;\n\n");
