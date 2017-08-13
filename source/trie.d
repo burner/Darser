@@ -1,6 +1,7 @@
 module trie;
 
 import rules;
+import std.array : front;
 
 import std.stdio;
 
@@ -66,6 +67,40 @@ Trie[] ruleToTrie(Rule rule) {
 	import std.array : back;
 	import std.uni : isUpper;
 	auto ret = new Trie;
+	
+	foreach(subRule; rule.subRules) {
+		ruleToTrieRecur(ret, subRule, subRule.elements, rule.name);
+	}
+
+	return ret.follow;
+}
+
+void ruleToTrieRecur(Trie cur, SubRule sr, RulePart[] rp, string ruleName) {
+	Trie con;
+	foreach(elem; cur.follow) {
+		if(elem.value.name == rp.front.name) {
+			con = elem;
+		}
+	}
+	if(con is null) {
+		con = new Trie(rp.front);
+		con.ruleName = ruleName;
+		con.subRuleName = sr.name;
+		cur.follow ~= con;
+	}
+	if(rp.length > 1) {
+		ruleToTrieRecur(con, sr, rp[1 .. $], ruleName);
+	} else {
+		con.subRuleName = sr.name;
+	}
+}
+
+
+
+/*Trie[] ruleToTrie(Rule rule) {
+	import std.array : back;
+	import std.uni : isUpper;
+	auto ret = new Trie;
 
 	foreach(subRule; rule.subRules) {
 		writefln("sr %s ret.length %s", subRule, ret.follow.length);
@@ -90,6 +125,7 @@ Trie[] ruleToTrie(Rule rule) {
 			auto ne = new Trie(rp);
 			ne.subRule = subRule;
 			if(idx + 1 == subRule.elements.length) {
+				writefln("baz.ruleName %s", subRule);
 				ne.ruleName = rule.name;
 			}
 
@@ -105,4 +141,4 @@ Trie[] ruleToTrie(Rule rule) {
 	//	writefln("\t%s", it.value.name);
 	//}
 	return ret.follow;
-}
+}*/

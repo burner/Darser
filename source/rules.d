@@ -12,7 +12,6 @@ class RulePart {
 	StoreRulePart storeThis;	
 	string name;
 	string storeName;
-	bool onlyIf;
 
 	this(string name) {
 		this.name = name;
@@ -31,14 +30,6 @@ class RulePart {
 
 	bool nonterminal() pure const @safe {
 		return this.name.front.isLower();
-	}
-
-	bool isRepeatStart() pure const @safe {
-		return this.name == "REPEATS";
-	}
-
-	bool isRepeatStop() pure const @safe {
-		return this.name == "REPEATSTOP";
 	}
 
 	override string toString() pure const @safe {

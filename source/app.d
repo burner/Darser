@@ -320,13 +320,7 @@ class Parser {
 		bool isRepeat = false;
 		string prefix = "if";
 
-		if(t.value.isRepeatStart()) {
-			isRepeat = true;
-			prefix = "while";
-			t = t.follow[0];
-			fail = t.follow;
-		}
-		if(isLower(t.value.name[0]) && !t.value.isRepeatStop()) {
+		if(isLower(t.value.name[0])) {
 			formattedWrite(ltw, 
 				"%s(this.lex.front.type == TokenType.%s) {\n",
 				prefix, t.value.name
@@ -337,7 +331,7 @@ class Parser {
 				);
 			}
 			formatIndent(ltw, indent + 1, "this.lex.popFront();\n");
-		} else if(!t.value.isRepeatStop()) {
+		} else {
 			formattedWrite(ltw, "%s(this.first%s()) {\n", prefix, t.value.name);
 			this.genIndent(ltw, indent + 1);
 			if(t.value.storeThis) {
@@ -347,15 +341,15 @@ class Parser {
 			} else {
 				formattedWrite(ltw, "this.parse%s();\n", t.value.name);
 			}
-		} else {
-			formattedWrite(ltw, "\n");
 		}
 
 		foreach(i, it; t.follow) {
 			genParse(ltw, i, t.follow.length, it, indent + 1, t.follow);
 		}
 		
-		if(t.follow.empty && !t.ruleName.empty) {
+		//if(t.follow.empty && !t.ruleName.empty) {
+		if(!t.ruleName.empty) {
+			formattedWrite(ltw, "\n");
 			genTrieCtor(ltw, t, indent);
 		}
 		if(t.ruleName.empty) {
@@ -406,11 +400,6 @@ class Parser {
 	}
 
 	void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail) {
-		foreach(htx, ht; fail) {
-			if(ht.value.isRepeatStart() || ht.value.isRepeatStop()) {
-				return;
-			}
-		}
 		formatIndent(ltw, indent, "throw new ParseException(format(\n");
 		formatIndent(ltw, indent + 1, "\"Was expecting an");
 		foreach(htx, ht; fail) {
@@ -430,9 +419,12 @@ class Parser {
 	void genRule(File.LockingTextWriter ltw, Rule rule) {
 		genFirst(ltw, rule);
 		auto t = ruleToTrie(rule);
+		writeln("Rule Trie Start");
 		foreach(it; t) {
 			writeln(it.toString());
 		}
+		//return;
+		writeln("Rule Trie Done");
 		formatIndent(ltw, 1, "%1$sPtr parse%1$s() {\n", rule.name);
 		formatIndent(ltw, 2, "try {\n");
 		formatIndent(ltw, 3, "return this.parse%sImpl();\n", rule.name);
@@ -514,7 +506,7 @@ class Parser {
 
 
 struct Options {
-	string inputFile = "e.yaml";
+	string inputFile = "graghql.yaml";
 	string astOut;
 	string parserOut;
 	string visitorOut;
