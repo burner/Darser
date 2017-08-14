@@ -394,7 +394,8 @@ class Darser {
 	}
 
 	void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail) {
-		formatIndent(ltw, indent, "throw new ParseException(format(\n");
+		formatIndent(ltw, indent, "auto app = AllocAppender!string(this.alloc);\n");
+		formatIndent(ltw, indent, "formattedWrite(&app\n");
 		formatIndent(ltw, indent + 1, "\"Was expecting an");
 		foreach(htx, ht; fail) {
 			if(htx == 0) {
@@ -406,8 +407,11 @@ class Darser {
 			}
 		}
 		formattedWrite(ltw, ". Found a '%%s' at %%s:%%s.\", \n");
-		formatIndent(ltw, indent + 1, "this.lex.front.type,this.lex.line, this.lex.column)\n");
-		formatIndent(ltw, indent, ");");
+		formatIndent(ltw, indent + 1, "this.lex.front.type,this.lex.line, this.lex.column\n");
+		formatIndent(ltw, indent, ");\n");
+		formatIndent(ltw, indent, "throw this.alloc.make!ParseException(app.data,\n");
+		formatIndent(ltw, indent + 1, "__LINE__\n");
+		formatIndent(ltw, indent, ");\n");
 	}
 
 	void genRule(File.LockingTextWriter ltw, Rule rule) {
@@ -456,6 +460,7 @@ class Darser {
 		formatIndent(ltw, 0, "import exception;\n\n");
 
 		formatIndent(ltw, 0, "struct Parser {\n");
+		formatIndent(ltw, 1, "import vibe.utils.array : AllocAppender;\n\n");
 		formatIndent(ltw, 1, "Lexer lex;\n\n");
 		formatIndent(ltw, 1, "IAllocator alloc;\n\n");
 		formatIndent(ltw, 1, "this(Lexer lex, IAllocator alloc) {\n");
@@ -471,14 +476,12 @@ class Darser {
 
 		formatIndent(ltw, 0, "class ParseException : Exception {\n");
 		formatIndent(ltw, 1, "int line;\n");
-		formatIndent(ltw, 1, "int column;\n\n");
 		formatIndent(ltw, 1, "this(string msg) {\n");
 		formatIndent(ltw, 2, "super(msg);\n");
 		formatIndent(ltw, 1, "}\n\n");
-		formatIndent(ltw, 1, "this(string msg, int l, int c) {\n");
+		formatIndent(ltw, 1, "this(string msg, int l) {\n");
 		formatIndent(ltw, 2, "super(msg);\n");
 		formatIndent(ltw, 2, "this.line = l;\n");
-		formatIndent(ltw, 2, "this.column = c;\n");
 		formatIndent(ltw, 1, "}\n\n");
 		formatIndent(ltw, 1, 
 			"this(string msg, ParseException other) {\n"
@@ -486,16 +489,15 @@ class Darser {
 		formatIndent(ltw, 2, "super(msg, other);\n");
 		formatIndent(ltw, 1, "}\n\n");
 		formatIndent(ltw, 1, 
-			"this(string msg, ParseException other, int l, int c) {\n"
+			"this(string msg, ParseException other, int l) {\n"
 		);
 		formatIndent(ltw, 2, "super(msg, other);\n");
 		formatIndent(ltw, 2, "this.line = l;\n");
-		formatIndent(ltw, 2, "this.column = c;\n");
 		formatIndent(ltw, 1, "}\n\n");
 		formatIndent(ltw, 1, "override string toString() {\n");
 		formatIndent(ltw, 2, "import std.format : format;\n");
-		formatIndent(ltw, 2, "return format(\"%%s at %%d:%%d\", super.msg, "
-			~ "this.line, this.column);\n");
+		formatIndent(ltw, 2, "return format(\"%%s at %%d:\", super.msg, "
+			~ "this.line);\n");
 		formatIndent(ltw, 1, "}\n");
 		formatIndent(ltw, 0, "}\n");
 	}
