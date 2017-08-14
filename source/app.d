@@ -79,6 +79,7 @@ class Darser {
 		}
 		formatIndent(ltw, 0, "import tokenmodule;\n\n");
 		//formatIndent(ltw, 0, "import visitor;\n\n");
+
 		void generateEnum(File.LockingTextWriter ltw, Rule rule) {
 			formattedWrite(ltw, "enum %sEnum {\n", rule.name);
 			foreach(subRule; rule.subRules) {
@@ -87,13 +88,14 @@ class Darser {
 			}
 			formattedWrite(ltw, "}\n\n");
 		}
+
 		void generateMembers(File.LockingTextWriter ltw, Rule rule) {
 			RulePart[string] uni = this.unique(rule);
 			foreach(key, value; uni) {
 				if(!value.name.empty && isLower(value.name[0])) {
 					formattedWrite(ltw, "\tToken %s;\n", key);
 				} else {
-					formattedWrite(ltw, "\t%sPtr %s;\n", value.name, key);
+					formattedWrite(ltw, "\t%s %s;\n", value.name, key);
 				}
 			}
 			formattedWrite(ltw, "\n");
@@ -137,7 +139,7 @@ class Darser {
 						if(isLower(jt.name[0])) {
 							formattedWrite(ltw, ", Token %s", jt.storeName);
 						} else {
-							formattedWrite(ltw, ", %sPtr %s", 
+							formattedWrite(ltw, ", %s %s", 
 									jt.name, jt.storeName
 							);
 						}
@@ -171,33 +173,14 @@ class Darser {
 		}
 		foreach(rule; this.rules) {
 			generateEnum(ltw, rule);
-			formattedWrite(ltw, "struct %s {\n", rule.name);	
+			formattedWrite(ltw, "class %s {\n", rule.name);	
 			formattedWrite(ltw, "\t%sEnum ruleSelection;\n", rule.name);	
 			generateMembers(ltw, rule);
-			//genereateCTors(ltw, rule);
+			genereateCTors(ltw, rule);
 			//generateVisitor(ltw, rule);
 			formattedWrite(ltw, "}\n\n");	
-			formattedWrite(ltw, "alias %1$sPtr = RefCounted!(%1$s);\n\n", rule.name);	
+			//formattedWrite(ltw, "alias %1$s = RefCounted!(%1$s);\n\n", rule.name);	
 		}
-	}
-
-	void genParser(File.LockingTextWriter ltw) {
-		formattedWrite(ltw, 
-`module parser;
-
-import std.typecons : RefCounted, refCounted;
-import lexer;
-
-class Parser {
-	Lexer lex;
-
-	this(Lexer lex) {
-		this.lex = lex;
-	}
-`);
-
-		this.genRules(ltw);
-		formattedWrite(ltw, "}\n\n");
 	}
 
 	void genRules(File.LockingTextWriter ltw) {
@@ -296,6 +279,7 @@ class Parser {
 	void genDefaultVisitor(File.LockingTextWriter ltw) {
 		//formatIndent(ltw, 0, "module visitor;\n\n");
 		formatIndent(ltw, 0, "import std.typecons : RefCounted, refCounted;\n\n");
+		formatIndent(ltw, 0, "import std.experimental.allocator;\n\n");
 		formatIndent(ltw, 0, "import ast;\n");
 		formatIndent(ltw, 0, "import tokenmodule;\n\n");
 		formatIndent(ltw, 0, "struct Visitor {\n");
@@ -326,7 +310,7 @@ class Parser {
 				prefix, t.value.name
 			);
 			if(t.value.storeThis) {
-				formatIndent(ltw, indent + 1, "ret.%s = this.lex.front;\n",
+				formatIndent(ltw, indent + 1, "Token %s = this.lex.front;\n",
 					t.value.storeName
 				);
 			}
@@ -335,7 +319,7 @@ class Parser {
 			formattedWrite(ltw, "%s(this.first%s()) {\n", prefix, t.value.name);
 			this.genIndent(ltw, indent + 1);
 			if(t.value.storeThis) {
-				formattedWrite(ltw, "ret.%2$s = this.parse%1$s();\n",
+				formattedWrite(ltw, "%1$s %2$s = this.parse%1$s();\n",
 						t.value.name, t.value.storeName
 				);
 			} else {
@@ -393,10 +377,20 @@ class Parser {
 	void genTrieCtor(File.LockingTextWriter ltw, Trie t, int indent)
 			const 
 	{
-		formatIndent(ltw, indent + 1, "ret.ruleSelection = %1$sEnum.%2$s;\n", 
-			t.ruleName, t.subRuleName
-		);
-		formatIndent(ltw, indent + 1, "return ret;");
+		//formatIndent(ltw, indent + 1, "ret.ruleSelection = %1$sEnum.%2$s;\n", 
+		//	t.ruleName, t.subRuleName
+		//);
+		//formatIndent(ltw, indent + 1, "return ret;");
+		formatIndent(ltw, indent + 1, "return this.alloc.make!%s(%1$sEnum.%2$s\n",
+				t.ruleName, t.subRuleName
+			);
+		assert(t.subRule !is null);
+		foreach(kt; t.subRule.elements) {
+			if(kt.storeThis) {
+				formatIndent(ltw, indent + 2, ", %s\n", kt.storeName);
+			}
+		}
+		formatIndent(ltw, indent + 1, ");");
 	}
 
 	void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail) {
@@ -425,7 +419,7 @@ class Parser {
 		}
 		//return;
 		writeln("Rule Trie Done");
-		formatIndent(ltw, 1, "%1$sPtr parse%1$s() {\n", rule.name);
+		formatIndent(ltw, 1, "%1$s parse%1$s() {\n", rule.name);
 		formatIndent(ltw, 2, "try {\n");
 		formatIndent(ltw, 3, "return this.parse%sImpl();\n", rule.name);
 		formatIndent(ltw, 2, "} catch(ParseException e) {\n");
@@ -436,8 +430,8 @@ class Parser {
 		formatIndent(ltw, 2, "}\n");
 		formatIndent(ltw, 1, "}\n\n");
 
-		formatIndent(ltw, 1, "%1$sPtr parse%1$sImpl() {\n", rule.name);
-		formatIndent(ltw, 2, "%1$sPtr ret = refCounted!%1$s(%1$s());\n", rule.name);
+		formatIndent(ltw, 1, "%1$s parse%1$sImpl() {\n", rule.name);
+		//formatIndent(ltw, 2, "%1$s ret = refCounted!%1$s(%1$s());\n", rule.name);
 		foreach(i, it; t) {
 			genParse(ltw, i, t.length, it, 2, t);
 		}
@@ -451,6 +445,7 @@ class Parser {
 	void genParserClass(File.LockingTextWriter ltw, bool customParseFunctions) {
 		formatIndent(ltw, 0, "module parser;\n\n");
 		formatIndent(ltw, 0, "import std.typecons : RefCounted, refCounted;\n");
+		formatIndent(ltw, 0, "import std.experimental.allocator;\n\n");
 		formatIndent(ltw, 0, "import std.format : format;\n");
 		formatIndent(ltw, 0, "import ast;\n");
 		if(customParseFunctions) {
@@ -462,8 +457,10 @@ class Parser {
 
 		formatIndent(ltw, 0, "struct Parser {\n");
 		formatIndent(ltw, 1, "Lexer lex;\n\n");
-		formatIndent(ltw, 1, "this(Lexer lex) {\n");
+		formatIndent(ltw, 1, "IAllocator alloc;\n\n");
+		formatIndent(ltw, 1, "this(Lexer lex, IAllocator alloc) {\n");
 		formatIndent(ltw, 2, "this.lex = lex;\n");
+		formatIndent(ltw, 2, "this.alloc = alloc;\n");
 		formatIndent(ltw, 1, "}\n\n");
 		this.genRules(ltw);
 		formatIndent(ltw, 0, "}\n");
