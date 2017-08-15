@@ -432,7 +432,7 @@ class Darser {
 		formatIndent(ltw, 4, "\"While parsing a %s an Exception "
 				~ "was thrown.\",\n", rule.name
 		);
-		formatIndent(ltw, 4, "__FILE__, __LINE__\n");
+		formatIndent(ltw, 4, "e, __FILE__, __LINE__\n");
 		formatIndent(ltw, 3, ");\n");
 		formatIndent(ltw, 2, "}\n");
 		formatIndent(ltw, 1, "}\n\n");
