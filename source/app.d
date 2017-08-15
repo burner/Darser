@@ -395,7 +395,7 @@ class Darser {
 
 	void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail) {
 		formatIndent(ltw, indent, "auto app = AllocAppender!string(this.alloc);\n");
-		formatIndent(ltw, indent, "formattedWrite(&app\n");
+		formatIndent(ltw, indent, "formattedWrite(&app, \n");
 		formatIndent(ltw, indent + 1, "\"Was expecting an");
 		foreach(htx, ht; fail) {
 			if(htx == 0) {
@@ -407,10 +407,10 @@ class Darser {
 			}
 		}
 		formattedWrite(ltw, ". Found a '%%s' at %%s:%%s.\", \n");
-		formatIndent(ltw, indent + 1, "this.lex.front.type,this.lex.line, this.lex.column\n");
+		formatIndent(ltw, indent + 1, "this.lex.front, this.lex.line, this.lex.column\n");
 		formatIndent(ltw, indent, ");\n");
 		formatIndent(ltw, indent, "throw this.alloc.make!ParseException(app.data,\n");
-		formatIndent(ltw, indent + 1, "__LINE__\n");
+		formatIndent(ltw, indent + 1, "__FILE__, __LINE__\n");
 		formatIndent(ltw, indent, ");\n");
 	}
 
@@ -461,6 +461,7 @@ class Darser {
 
 		formatIndent(ltw, 0, "struct Parser {\n");
 		formatIndent(ltw, 1, "import vibe.utils.array : AllocAppender;\n\n");
+		formatIndent(ltw, 1, "import std.format : formattedWrite;\n\n");
 		formatIndent(ltw, 1, "Lexer lex;\n\n");
 		formatIndent(ltw, 1, "IAllocator alloc;\n\n");
 		formatIndent(ltw, 1, "this(Lexer lex, IAllocator alloc) {\n");
@@ -479,8 +480,8 @@ class Darser {
 		formatIndent(ltw, 1, "this(string msg) {\n");
 		formatIndent(ltw, 2, "super(msg);\n");
 		formatIndent(ltw, 1, "}\n\n");
-		formatIndent(ltw, 1, "this(string msg, int l) {\n");
-		formatIndent(ltw, 2, "super(msg);\n");
+		formatIndent(ltw, 1, "this(string msg, string f, int l) {\n");
+		formatIndent(ltw, 2, "super(msg, f, l);\n");
 		formatIndent(ltw, 2, "this.line = l;\n");
 		formatIndent(ltw, 1, "}\n\n");
 		formatIndent(ltw, 1, 
@@ -489,9 +490,9 @@ class Darser {
 		formatIndent(ltw, 2, "super(msg, other);\n");
 		formatIndent(ltw, 1, "}\n\n");
 		formatIndent(ltw, 1, 
-			"this(string msg, ParseException other, int l) {\n"
+			"this(string msg, ParseException other, string f, int l) {\n"
 		);
-		formatIndent(ltw, 2, "super(msg, other);\n");
+		formatIndent(ltw, 2, "super(msg, f, l, other);\n");
 		formatIndent(ltw, 2, "this.line = l;\n");
 		formatIndent(ltw, 1, "}\n\n");
 		formatIndent(ltw, 1, "override string toString() {\n");

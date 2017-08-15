@@ -84,15 +84,15 @@ void ruleToTrieRecur(Trie cur, SubRule sr, RulePart[] rp, string ruleName) {
 	}
 	if(con is null) {
 		con = new Trie(rp.front);
-		con.ruleName = ruleName;
-		con.subRule = sr;
 		con.subRuleName = sr.name;
 		cur.follow ~= con;
 	}
 	if(rp.length > 1) {
 		ruleToTrieRecur(con, sr, rp[1 .. $], ruleName);
 	} else {
+		con.ruleName = ruleName;
 		con.subRuleName = sr.name;
+		con.subRule = sr;
 	}
 }
 
