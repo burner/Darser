@@ -428,9 +428,12 @@ class Darser {
 		formatIndent(ltw, 3, "return this.parse%sImpl();\n", rule.name);
 		formatIndent(ltw, 2, "} catch(ParseException e) {\n");
 		formatIndent(ltw, 3, 
-				"throw new ParseException(\"While parsing a %s an Exception "
-				~ "was thrown.\", e);\n", rule.name
+				"throw this.alloc.make!(ParseException)(\n");
+		formatIndent(ltw, 4, "\"While parsing a %s an Exception "
+				~ "was thrown.\",\n", rule.name
 		);
+		formatIndent(ltw, 4, "__FILE__, __LINE__\n");
+		formatIndent(ltw, 3, ");\n");
 		formatIndent(ltw, 2, "}\n");
 		formatIndent(ltw, 1, "}\n\n");
 
