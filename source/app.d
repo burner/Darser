@@ -78,7 +78,7 @@ class Darser {
 			formatIndent(ltw, 0, "public import astcustom;\n\n");
 		}
 		formatIndent(ltw, 0, "import tokenmodule;\n\n");
-		//formatIndent(ltw, 0, "import visitor;\n\n");
+		formatIndent(ltw, 0, "import visitor;\n\n");
 
 		void generateEnum(File.LockingTextWriter ltw, Rule rule) {
 			formattedWrite(ltw, "enum %sEnum {\n", rule.name);
@@ -177,7 +177,7 @@ class Darser {
 			formattedWrite(ltw, "\t%sEnum ruleSelection;\n", rule.name);	
 			generateMembers(ltw, rule);
 			genereateCTors(ltw, rule);
-			//generateVisitor(ltw, rule);
+			generateVisitor(ltw, rule);
 			formattedWrite(ltw, "}\n\n");	
 			//formattedWrite(ltw, "alias %1$s = RefCounted!(%1$s);\n\n", rule.name);	
 		}
@@ -279,7 +279,6 @@ class Darser {
 	void genDefaultVisitor(File.LockingTextWriter ltw) {
 		//formatIndent(ltw, 0, "module visitor;\n\n");
 		formatIndent(ltw, 0, "import std.typecons : RefCounted, refCounted;\n\n");
-		formatIndent(ltw, 0, "import std.experimental.allocator;\n\n");
 		formatIndent(ltw, 0, "import ast;\n");
 		formatIndent(ltw, 0, "import tokenmodule;\n\n");
 		formatIndent(ltw, 0, "struct Visitor {\n");
@@ -381,7 +380,7 @@ class Darser {
 		//	t.ruleName, t.subRuleName
 		//);
 		//formatIndent(ltw, indent + 1, "return ret;");
-		formatIndent(ltw, indent + 1, "return this.alloc.make!%s(%1$sEnum.%2$s\n",
+		formatIndent(ltw, indent + 1, "return new %s(%1$sEnum.%2$s\n",
 				t.ruleName, t.subRuleName
 			);
 		assert(t.subRule !is null);
@@ -394,8 +393,8 @@ class Darser {
 	}
 
 	void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail) {
-		formatIndent(ltw, indent, "auto app = AllocAppender!string(this.alloc);\n");
-		formatIndent(ltw, indent, "formattedWrite(&app, \n");
+		formatIndent(ltw, indent, "auto app = appender!string();\n");
+		formatIndent(ltw, indent, "formattedWrite(app, \n");
 		formatIndent(ltw, indent + 1, "\"Was expecting an");
 		foreach(htx, ht; fail) {
 			if(htx == 0) {
@@ -409,7 +408,7 @@ class Darser {
 		formattedWrite(ltw, ". Found a '%%s' at %%s:%%s.\", \n");
 		formatIndent(ltw, indent + 1, "this.lex.front, this.lex.line, this.lex.column\n");
 		formatIndent(ltw, indent, ");\n");
-		formatIndent(ltw, indent, "throw this.alloc.make!ParseException(app.data,\n");
+		formatIndent(ltw, indent, "throw new ParseException(app.data,\n");
 		formatIndent(ltw, indent + 1, "__FILE__, __LINE__\n");
 		formatIndent(ltw, indent, ");\n");
 	}
@@ -428,7 +427,7 @@ class Darser {
 		formatIndent(ltw, 3, "return this.parse%sImpl();\n", rule.name);
 		formatIndent(ltw, 2, "} catch(ParseException e) {\n");
 		formatIndent(ltw, 3, 
-				"throw this.alloc.make!(ParseException)(\n");
+				"throw new ParseException(\n");
 		formatIndent(ltw, 4, "\"While parsing a %s an Exception "
 				~ "was thrown.\",\n", rule.name
 		);
@@ -452,7 +451,6 @@ class Darser {
 	void genParserClass(File.LockingTextWriter ltw, bool customParseFunctions) {
 		formatIndent(ltw, 0, "module parser;\n\n");
 		formatIndent(ltw, 0, "import std.typecons : RefCounted, refCounted;\n");
-		formatIndent(ltw, 0, "import std.experimental.allocator;\n\n");
 		formatIndent(ltw, 0, "import std.format : format;\n");
 		formatIndent(ltw, 0, "import ast;\n");
 		if(customParseFunctions) {
@@ -463,13 +461,11 @@ class Darser {
 		formatIndent(ltw, 0, "import exception;\n\n");
 
 		formatIndent(ltw, 0, "struct Parser {\n");
-		formatIndent(ltw, 1, "import vibe.utils.array : AllocAppender;\n\n");
+		formatIndent(ltw, 1, "import std.array : appender;\n\n");
 		formatIndent(ltw, 1, "import std.format : formattedWrite;\n\n");
 		formatIndent(ltw, 1, "Lexer lex;\n\n");
-		formatIndent(ltw, 1, "IAllocator alloc;\n\n");
-		formatIndent(ltw, 1, "this(Lexer lex, IAllocator alloc) {\n");
+		formatIndent(ltw, 1, "this(Lexer lex) {\n");
 		formatIndent(ltw, 2, "this.lex = lex;\n");
-		formatIndent(ltw, 2, "this.alloc = alloc;\n");
 		formatIndent(ltw, 1, "}\n\n");
 		this.genRules(ltw);
 		formatIndent(ltw, 0, "}\n");
