@@ -25,11 +25,11 @@ class RulePart {
 	}
 
 	bool terminal() pure const @safe {
-		return this.name.front.isUpper();
+		return this.name.front.isLower();
 	}
 
 	bool nonterminal() pure const @safe {
-		return this.name.front.isLower();
+		return this.name.front.isUpper();
 	}
 
 	override string toString() pure const @safe {

@@ -17,19 +17,15 @@ void formatIndent(O,Args...)(ref O o, long indent, string str,
 	formattedWrite(o, str, args);
 }
 
-interface IDarser {
-
-}
-
 class Darser {
 	import std.format;
 	import std.array : empty;
 	import std.uni : isLower, isUpper;
+
 	Rule[] rules;
-
 	bool[string][string] firstSets;
-
 	string filename;
+
 	this(string filename) {
 		this.filename = filename;
 		this.gen();
@@ -37,7 +33,7 @@ class Darser {
 	}
 
 	void gen() {
-		auto root = Loader(this.filename);
+		auto root = Loader.fromFile(this.filename);
 		foreach(ref Node it; root) {
 			auto jt = it.as!(Node.Pair[])();
 			foreach(ref kt; jt) {
@@ -59,7 +55,7 @@ class Darser {
 		}
 	}
 
-	RulePart[string] unique(Rule rule) {
+	static RulePart[string] unique(Rule rule) {
 		RulePart[string] ret;
 		foreach(it; rule.subRules) {
 			foreach(jt; it.elements) {
@@ -184,12 +180,18 @@ class Darser {
 	}
 
 	void genRules(File.LockingTextWriter ltw) {
+		auto t = new Trie();
 		foreach(rule;  this.rules) {
+			foreach(subRule; rule.subRules) {
+				ruleToTrieRecur(t, subRule, subRule.elements, rule.name);
+			}
 			this.genRule(ltw, rule);
 		}
+		writeln("\n\n\n\nTrie\n");
+		printTrie(t, 0);
 	}
 
-	void genIndent(File.LockingTextWriter ltw, int indent) {
+	static void genIndent(File.LockingTextWriter ltw, int indent) {
 		while(indent > 0) {
 			formattedWrite(ltw, "\t");
 			--indent;
@@ -246,7 +248,7 @@ class Darser {
 		//writeln(this.firstSets);
 	}
 
-	void genVis(bool cns)(File.LockingTextWriter ltw, Rule rule) {
+	static void genVis(bool cns)(File.LockingTextWriter ltw, Rule rule) {
 		formatIndent(ltw, 0, "\n");
 		if(cns) {
 			formatIndent(ltw, 1, "void accept(const(%s) obj) {\n",
@@ -291,13 +293,13 @@ class Darser {
 		formatIndent(ltw, 0, "}\n");
 	}
 
-	void genParse(File.LockingTextWriter ltw, const(size_t) idx,
+	static void genParse(File.LockingTextWriter ltw, const(size_t) idx,
 			const(size_t) off, Trie t, int indent, Trie[] fail)
 	{
 		if(idx > 0) {
 			formattedWrite(ltw, " else ");
 		} else {
-			this.genIndent(ltw, indent);
+			genIndent(ltw, indent);
 		}
 
 		bool isRepeat = false;
@@ -316,7 +318,7 @@ class Darser {
 			formatIndent(ltw, indent + 1, "this.lex.popFront();\n");
 		} else {
 			formattedWrite(ltw, "%s(this.first%s()) {\n", prefix, t.value.name);
-			this.genIndent(ltw, indent + 1);
+			genIndent(ltw, indent + 1);
 			if(t.value.storeThis) {
 				formattedWrite(ltw, "%1$s %2$s = this.parse%1$s();\n",
 						t.value.name, t.value.storeName
@@ -343,7 +345,7 @@ class Darser {
 		formatIndent(ltw, indent, "}");
 	}
 
-	void genFirst(File.LockingTextWriter ltw, Rule rule) {
+	static void genFirst(File.LockingTextWriter ltw, Rule rule) {
 		bool[string] found;
 		formatIndent(ltw, 1, "bool first%s() const {\n", rule.name);
 		formatIndent(ltw, 2, "return ");
@@ -373,9 +375,7 @@ class Darser {
 		formattedWrite(ltw, ";\n\t}\n\n");
 	}
 
-	void genTrieCtor(File.LockingTextWriter ltw, Trie t, int indent)
-			const 
-	{
+	static void genTrieCtor(File.LockingTextWriter ltw, Trie t, int indent) {
 		//formatIndent(ltw, indent + 1, "ret.ruleSelection = %1$sEnum.%2$s;\n", 
 		//	t.ruleName, t.subRuleName
 		//);
@@ -392,7 +392,7 @@ class Darser {
 		formatIndent(ltw, indent + 1, ");");
 	}
 
-	void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail) {
+	static void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail) {
 		formatIndent(ltw, indent, "auto app = appender!string();\n");
 		formatIndent(ltw, indent, "formattedWrite(app, \n");
 		formatIndent(ltw, indent + 1, "\"Was expecting an");
@@ -413,7 +413,7 @@ class Darser {
 		formatIndent(ltw, indent, ");\n");
 	}
 
-	void genRule(File.LockingTextWriter ltw, Rule rule) {
+	static void genRule(File.LockingTextWriter ltw, Rule rule) {
 		genFirst(ltw, rule);
 		auto t = ruleToTrie(rule);
 		writeln("Rule Trie Start");
@@ -471,7 +471,7 @@ class Darser {
 		formatIndent(ltw, 0, "}\n");
 	}
 
-	void genParseException(File.LockingTextWriter ltw) {
+	static void genParseException(File.LockingTextWriter ltw) {
 		formatIndent(ltw, 0, "module exception;\n\n");
 
 		formatIndent(ltw, 0, "class ParseException : Exception {\n");

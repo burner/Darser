@@ -1,9 +1,13 @@
+Test:
+    FIELD: [Field#field]
+    NOTFIELD: [NotField#notField]
+
 Field:
-    FADS: [FieldName#name, Arguments#args, Directives#dirs, SelectionsSet#ss]
-    FAS: [FieldName#name, Arguments#args, SelectionsSet#ss]
-    FAD: [FieldName#name, Arguments#args, Directives#dirs]
-    FDS: [FieldName#name, Directives#dirs, SelectionsSet#ss]
-    FS: [FieldName#name, SelectionsSet#ss]
-    FD: [FieldName#name, Directives#dirs]
-    FA: [FieldName#name, Arguments#args]
-    F: [FieldName#name]
+    FADS: [FieldName#name, number#num]
+
+NotField:
+    ONE: [FieldName#name, identifier#ident]
+
+FieldName:
+    FN: [identifier#ident]
+
