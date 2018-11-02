@@ -1,7 +1,7 @@
 import std.stdio;
 import dyaml;
 
-import std.array : back, front, empty;
+import std.array : back, front, empty, popFront, popBack;
 
 import rules;
 import trie;
@@ -18,18 +18,23 @@ void formatIndent(O,Args...)(ref O o, long indent, string str,
 }
 
 class Darser {
+	import std.algorithm : setIntersection;
 	import std.format;
 	import std.array : empty;
 	import std.uni : isLower, isUpper;
+	import std.exception : enforce;
 
 	Rule[] rules;
 	bool[string][string] firstSets;
+	string[][string] expandedFirstSet;
+
 	string filename;
 
 	this(string filename) {
 		this.filename = filename;
 		this.gen();
 		this.genFirstSet();
+		this.buildTerminalFirstSets();
 	}
 
 	void gen() {
@@ -210,29 +215,59 @@ class Darser {
 		);
 	}
 
-	void fillFirstSets() {
-		repeat: do {
-			foreach(rule; this.rules) {
-				foreach(subRule; rule.subRules) {
-					if(isUpper(subRule.elements[0].name[0])) {
-						long oldSize = rule.name in this.firstSets ? 
-							this.firstSets[rule.name].length : 0;
-						if(subRule.elements[0].name in this.firstSets) {
-							foreach(key;
-									this.firstSets[subRule.elements[0].name].byKey())
-							{
-								this.firstSets[rule.name][key] = true;
-							}
-						}
-						long newSize = rule.name in this.firstSets ? 
-							this.firstSets[rule.name].length : 0;
-						if(newSize > oldSize) {
-							goto repeat;
-						}
-					}
-				}
+	void buildTerminalFirstSets() {
+		foreach(rule; this.rules) {
+			this.expandedFirstSet[rule.name] =
+				this.buildTerminalFirstSet(rule);
+		}
+	}
+
+	static bool isLowerStr(string str) {
+		import std.exception : enforce;
+		enforce(!str.empty);
+
+		return isLower(str[0]);
+	}
+
+	Rule getRule(string name) {
+		foreach(rule; this.rules) {
+			if(rule.name == name) {
+				return rule;
 			}
-		} while(false);
+		}
+		assert(false, "Rule with name " ~ name ~ " not found");
+	}
+
+	static void addSubRuleFirst(Rule rule, ref string[] toProcess) {
+		foreach(subRule; rule.subRules) {
+			toProcess ~= subRule.elements[0].name;
+		}
+	}
+
+	string[] buildTerminalFirstSet(Rule rule) {
+		import std.algorithm.searching : canFind, find;
+		string[] toProcess;
+		addSubRuleFirst(rule, toProcess);
+
+		string alreadyProcessed;
+
+		string[] ret;
+		while(!toProcess.empty) {
+			string t = toProcess.back;
+			writefln("%s toProcess [%(%s, %)]", t, toProcess);
+			toProcess.popBack();
+
+			if(isLowerStr(t)) {
+				if(!canFind(ret, t)) {
+					ret ~= t;
+				}
+				continue;
+			}
+
+			Rule r = this.getRule(t);
+			addSubRuleFirst(r, toProcess);
+		}
+		return ret;
 	}
 
 	void genFirstSet() {
@@ -293,9 +328,21 @@ class Darser {
 		formatIndent(ltw, 0, "}\n");
 	}
 
-	static void genParse(File.LockingTextWriter ltw, const(size_t) idx,
+	void genParse(File.LockingTextWriter ltw, const(size_t) idx,
 			const(size_t) off, Trie t, int indent, Trie[] fail)
 	{
+		writefln("genParse %s %s", t.value.name, t.follow.length);
+		for(size_t i = 0; i < t.follow.length; ++i) {
+			for(size_t j = i + 1; j < t.follow.length; ++j) {
+				writefln("first first i %s", t.follow[i].value.name);
+				writefln("first first j %s", t.follow[j].value.name);
+				assert(setIntersection(
+						this.expandedFirstSet[t.follow[i].value.name],
+						this.expandedFirstSet[t.follow[j].value.name]
+					).empty);
+			}
+		}
+
 		if(idx > 0) {
 			formattedWrite(ltw, " else ");
 		} else {
@@ -413,12 +460,23 @@ class Darser {
 		formatIndent(ltw, indent, ");\n");
 	}
 
-	static void genRule(File.LockingTextWriter ltw, Rule rule) {
+	void genRule(File.LockingTextWriter ltw, Rule rule) {
 		genFirst(ltw, rule);
 		auto t = ruleToTrie(rule);
 		writeln("Rule Trie Start");
 		foreach(it; t) {
 			writeln(it.toString());
+		}
+		for(size_t i = 0; i < t.length; ++i) {
+			for(size_t j = i + 1; j < t.length; ++j) {
+				enforce(setIntersection(
+						this.expandedFirstSet[t[i].value.name],
+						this.expandedFirstSet[t[j].value.name]
+					).empty, format(
+						"First first conflict in '%s' between '%s' and '%s'",
+						rule.name, t[i].value.name, t[j].value.name
+					));
+			}                      
 		}
 		//return;
 		writeln("Rule Trie Done");
@@ -548,13 +606,15 @@ void main(string[] args) {
 	}
 
 	auto darser = new Darser(opts.inputFile);
+	writeln(darser.firstSets);
+	writeln(darser.expandedFirstSet);
 
 	if(!opts.astOut.empty) {
 		auto f = File(opts.astOut, "w");
 		darser.generateClasses(f.lockingTextWriter(),
 				opts.customParseFunctions);
 	} else {
-		darser.generateClasses(stdout.lockingTextWriter(),
+		darser.generateClasses(stderr.lockingTextWriter(),
 				opts.customParseFunctions);
 	}
 
@@ -562,7 +622,7 @@ void main(string[] args) {
 		auto f = File(opts.parserOut, "w");
 		darser.genParserClass(f.lockingTextWriter(), opts.customParseFunctions);
 	} else {
-		darser.genParserClass(stdout.lockingTextWriter(),
+		darser.genParserClass(stderr.lockingTextWriter(),
 				opts.customParseFunctions);
 	}
 
@@ -570,14 +630,14 @@ void main(string[] args) {
 		auto f = File(opts.visitorOut, "w");
 		darser.genDefaultVisitor(f.lockingTextWriter());
 	} else {
-		darser.genDefaultVisitor(stdout.lockingTextWriter());
+		darser.genDefaultVisitor(stderr.lockingTextWriter());
 	}
 
 	if(!opts.exceptionOut.empty) {
 		auto f = File(opts.exceptionOut, "w");
 		darser.genParseException(f.lockingTextWriter());
 	} else {
-		darser.genParseException(stdout.lockingTextWriter());
+		darser.genParseException(stderr.lockingTextWriter());
 	}
 }
 

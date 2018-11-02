@@ -96,8 +96,6 @@ void ruleToTrieRecur(Trie cur, SubRule sr, RulePart[] rp, string ruleName) {
 	}
 }
 
-
-
 /*Trie[] ruleToTrie(Rule rule) {
 	import std.array : back;
 	import std.uni : isUpper;
