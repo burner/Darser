@@ -332,16 +332,6 @@ class Darser {
 			const(size_t) off, Trie t, int indent, Trie[] fail)
 	{
 		writefln("genParse %s %s", t.value.name, t.follow.length);
-		for(size_t i = 0; i < t.follow.length; ++i) {
-			for(size_t j = i + 1; j < t.follow.length; ++j) {
-				writefln("first first i %s", t.follow[i].value.name);
-				writefln("first first j %s", t.follow[j].value.name);
-				assert(setIntersection(
-						this.expandedFirstSet[t.follow[i].value.name],
-						this.expandedFirstSet[t.follow[j].value.name]
-					).empty);
-			}
-		}
 
 		if(idx > 0) {
 			formattedWrite(ltw, " else ");
@@ -372,6 +362,19 @@ class Darser {
 				);
 			} else {
 				formattedWrite(ltw, "this.parse%s();\n", t.value.name);
+			}
+		}
+
+		for(size_t i = 0; i < t.follow.length; ++i) {
+			for(size_t j = i + 1; j < t.follow.length; ++j) {
+				enforce(setIntersection(
+						this.expandedFirstSet[t.follow[i].value.name],
+						this.expandedFirstSet[t.follow[j].value.name]
+					).empty, format(
+						"First first conflict following '%s' between "
+						~ "'%s' and '%s'", t.value.name, 
+						t.follow[i].value.name, t.follow[j].value.name
+					));
 			}
 		}
 
@@ -563,7 +566,7 @@ class Darser {
 
 
 struct Options {
-	string inputFile = "graghql.yaml";
+	string inputFile = "graphql2.yaml";
 	string astOut;
 	string parserOut;
 	string visitorOut;
