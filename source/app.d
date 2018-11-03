@@ -18,9 +18,9 @@ void formatIndent(O,Args...)(ref O o, long indent, string str,
 }
 
 class Darser {
-	import std.algorithm : setIntersection;
+	import std.algorithm : setIntersection, setDifference;
 	import std.format;
-	import std.array : empty;
+	import std.array : empty, array;
 	import std.uni : isLower, isUpper;
 	import std.exception : enforce;
 
@@ -246,12 +246,12 @@ class Darser {
 
 	string[] buildTerminalFirstSet(Rule rule) {
 		import std.algorithm.searching : canFind, find;
-		string[] toProcess;
+		string[] toProcess = new string[0];
 		addSubRuleFirst(rule, toProcess);
 
 		string alreadyProcessed;
 
-		string[] ret;
+		string[] ret = new string[0];
 		while(!toProcess.empty) {
 			string t = toProcess.back;
 			writefln("%s toProcess [%(%s, %)]", t, toProcess);
@@ -367,14 +367,30 @@ class Darser {
 
 		for(size_t i = 0; i < t.follow.length; ++i) {
 			for(size_t j = i + 1; j < t.follow.length; ++j) {
-				enforce(setIntersection(
+				writefln("tt\n%s %s\n%s %s",
+						t.follow[i].value.name, 
+							this.expandedFirstSet[t.follow[i].value.name],
+						t.follow[j].value.name, 
+							this.expandedFirstSet[t.follow[j].value.name]
+					);
+				writeln(setDifference(
 						this.expandedFirstSet[t.follow[i].value.name],
 						this.expandedFirstSet[t.follow[j].value.name]
-					).empty, format(
+					).array.length == 
+						this.expandedFirstSet[t.follow[i].value.name].length +
+						this.expandedFirstSet[t.follow[j].value.name].length);
+				enforce(setDifference(
+						this.expandedFirstSet[t.follow[i].value.name],
+						this.expandedFirstSet[t.follow[j].value.name]
+					).array.length == 
+						this.expandedFirstSet[t.follow[i].value.name].length +
+						this.expandedFirstSet[t.follow[j].value.name].length, 
+					format(
 						"First first conflict following '%s' between "
 						~ "'%s' and '%s'", t.value.name, 
 						t.follow[i].value.name, t.follow[j].value.name
-					));
+					)
+				);
 			}
 		}
 
@@ -472,13 +488,21 @@ class Darser {
 		}
 		for(size_t i = 0; i < t.length; ++i) {
 			for(size_t j = i + 1; j < t.length; ++j) {
-				enforce(setIntersection(
+				// Same subrules with equal name we can handle
+				if(t[i].value.name == t[j].value.name) {
+					continue;
+				}
+				enforce(setDifference(
 						this.expandedFirstSet[t[i].value.name],
 						this.expandedFirstSet[t[j].value.name]
-					).empty, format(
+					).array.length == 
+						this.expandedFirstSet[t[i].value.name].length +
+						this.expandedFirstSet[t[j].value.name].length, 
+					format(
 						"First first conflict in '%s' between '%s' and '%s'",
 						rule.name, t[i].value.name, t[j].value.name
-					));
+					)
+				);
 			}                      
 		}
 		//return;
@@ -610,7 +634,7 @@ void main(string[] args) {
 
 	auto darser = new Darser(opts.inputFile);
 	writeln(darser.firstSets);
-	writeln(darser.expandedFirstSet);
+	writefln("\n\n%(\n%s%)", darser.expandedFirstSet);
 
 	if(!opts.astOut.empty) {
 		auto f = File(opts.astOut, "w");
