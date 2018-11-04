@@ -42,6 +42,16 @@ struct FirstRulePath {
 		enforce(!this.path.empty);
 		return isLowerStr(this.path.back);
 	}
+
+	string toString() {
+		import std.array : appender;
+		import std.format : formattedWrite;
+		import std.algorithm : joiner;
+
+		auto app = appender!string();
+		formattedWrite(app, "%s", this.path.joiner(" -> "));
+		return app.data;
+	}
 }
 
 class Darser {
@@ -257,11 +267,17 @@ class Darser {
 		assert(false, "Rule with name " ~ name ~ " not found");
 	}
 
-	static void addSubRuleFirst(Rule rule, ref FirstRulePath[] toProcess) {
+	static void addSubRuleFirst(Rule rule, ref FirstRulePath[] toProcess,
+			string[] old = null) 
+	{
 		foreach(subRule; rule.subRules) {
-			FirstRulePath tmp;
-			tmp.add(subRule.elements[0].name);
-			toProcess ~= tmp;
+			enforce(!subRule.elements.empty);
+			if(isLowerStr(subRule.elements[0].name)) {
+				FirstRulePath tmp;
+				tmp.path ~= old;
+				tmp.add(subRule.elements[0].name);
+				toProcess ~= tmp;
+			}
 		}
 	}
 
@@ -286,7 +302,7 @@ class Darser {
 			}
 
 			Rule r = this.getRule(t.getLast());
-			addSubRuleFirst(r, toProcess);
+			addSubRuleFirst(r, toProcess, t.path);
 		}
 		return ret;
 	}
@@ -502,7 +518,10 @@ class Darser {
 		for(size_t i = 0; i < t.length; ++i) {
 			for(size_t j = i + 1; j < t.length; ++j) {
 				// Same subrules with equal name we can handle
-				if(t[i].value.name == t[j].value.name) {
+				if(t[i].value.name == t[j].value.name
+						|| (isLowerStr(t[i].value.name) 
+							&& isLowerStr(t[j].value.name))
+				) {
 					continue;
 				}
 				enforce(setIntersection(
@@ -511,9 +530,9 @@ class Darser {
 						this.expandedFirstSet[t[j].value.name]
 							.map!(a => a.getLast()).array
 					).empty, format(
-						"First first conflict in '%s'between\n"
-						~ "'%s[%(%s,%)]' and '%s[%(%s,%)]'", rule.name, 
-						t[i].value.name, 
+						"\nFirst first conflict in '%s' between\n"
+						~ "'%s:\n\t%(%s\n\t%)'\nand \'%s:\n\t%(%s\n\t%)'", 
+						rule.name, t[i].value.name, 
 						this.expandedFirstSet[t[i].value.name],
 						t[j].value.name,
 						this.expandedFirstSet[t[j].value.name]
