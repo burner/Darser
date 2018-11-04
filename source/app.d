@@ -280,12 +280,10 @@ class Darser {
 	{
 		foreach(subRule; rule.subRules) {
 			enforce(!subRule.elements.empty);
-			//if(isLowerStr(subRule.elements[0].name)) {
-				FirstRulePath tmp;
-				tmp.path ~= old;
-				tmp.add(subRule.elements[0].name);
-				toProcess ~= tmp;
-			//}
+			FirstRulePath tmp;
+			tmp.path ~= old;
+			tmp.add(subRule.elements[0].name);
+			toProcess ~= tmp;
 		}
 	}
 

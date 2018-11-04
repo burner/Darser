@@ -77,19 +77,27 @@ Trie[] ruleToTrie(Rule rule) {
 
 void ruleToTrieRecur(Trie cur, SubRule sr, RulePart[] rp, string ruleName) {
 	Trie con;
+
+	// find the con(tinuing) Trie node
 	foreach(elem; cur.follow) {
 		if(elem.value.name == rp.front.name) {
 			con = elem;
 		}
 	}
+	
 	if(con is null) {
 		con = new Trie(rp.front);
 		con.subRuleName = sr.name;
 		cur.follow ~= con;
 	}
+
 	if(rp.length > 1) {
 		ruleToTrieRecur(con, sr, rp[1 .. $], ruleName);
 	} else {
+		writefln("maybe something exists already rule '%s' subrule '%s'"
+				~ " overrite with '%s' '%s'",
+				con.ruleName, con.subRuleName, sr.name, sr
+			);
 		con.ruleName = ruleName;
 		con.subRuleName = sr.name;
 		con.subRule = sr;
