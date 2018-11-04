@@ -96,6 +96,14 @@ class Darser {
 		}
 	}
 
+	string[] getExpandedFirstSet(string name) {
+		if(isLowerStr(name)) {
+			return [name];
+		} else {
+			return expandedFirstSet[name].map!(a => a.getLast()).array;
+		}
+	}
+
 	static RulePart[string] unique(Rule rule) {
 		RulePart[string] ret;
 		foreach(it; rule.subRules) {
@@ -272,12 +280,12 @@ class Darser {
 	{
 		foreach(subRule; rule.subRules) {
 			enforce(!subRule.elements.empty);
-			if(isLowerStr(subRule.elements[0].name)) {
+			//if(isLowerStr(subRule.elements[0].name)) {
 				FirstRulePath tmp;
 				tmp.path ~= old;
 				tmp.add(subRule.elements[0].name);
 				toProcess ~= tmp;
-			}
+			//}
 		}
 	}
 
@@ -289,8 +297,8 @@ class Darser {
 		FirstRulePath[] ret = new FirstRulePath[0];
 		while(!toProcess.empty) {
 			FirstRulePath t = toProcess.back;
-			writefln("%s toProcess [%(%s\n, %)]", t, 
-					toProcess.map!(a => a.getLast())
+			writefln("%s toProcess %s", 
+					toProcess.map!(a => a.getLast()), t
 				);
 			toProcess.popBack();
 
@@ -403,21 +411,21 @@ class Darser {
 			}
 		}
 
+		// testing first first conflicts
 		for(size_t i = 0; i < t.follow.length; ++i) {
 			for(size_t j = i + 1; j < t.follow.length; ++j) {
-				enforce(setIntersection(
-						this.expandedFirstSet[t.follow[i].value.name]
-							.map!(a => a.getLast()).array,
-						this.expandedFirstSet[t.follow[j].value.name]
-							.map!(a => a.getLast()).array
-					).empty, format(
+				string[] ifs = this.getExpandedFirstSet(
+										t.follow[i].value.name
+									);
+				string[] jfs = this.getExpandedFirstSet(
+										t.follow[j].value.name
+									);
+				writefln("FF %s:\n%s\n%s", t.value.name, ifs, jfs);
+				enforce(setIntersection(ifs, jfs).empty, format(
 						"First first conflict in '%s'\nfollowing '%s' between "
 						~ "'%s[%(%s,%)]' and '%s[%(%s,%)]'", ruleName, 
-						t.value.name, 
-						t.follow[i].value.name, 
-						this.expandedFirstSet[t.follow[i].value.name],
-						t.follow[j].value.name,
-						this.expandedFirstSet[t.follow[j].value.name]
+						t.value.name, t.follow[i].value.name, ifs,
+						t.follow[j].value.name, jfs
 					)
 				);
 			}
@@ -517,6 +525,13 @@ class Darser {
 		}
 		for(size_t i = 0; i < t.length; ++i) {
 			for(size_t j = i + 1; j < t.length; ++j) {
+				string[] ifs = this.getExpandedFirstSet(
+										t[i].value.name
+									);
+				string[] jfs = this.getExpandedFirstSet(
+										t[j].value.name
+									);
+				writefln("FF %s:\n%s\n%s", rule.name, ifs, jfs);
 				// Same subrules with equal name we can handle
 				if(t[i].value.name == t[j].value.name
 						|| (isLowerStr(t[i].value.name) 
@@ -524,19 +539,10 @@ class Darser {
 				) {
 					continue;
 				}
-				enforce(setIntersection(
-						this.expandedFirstSet[t[i].value.name]
-							.map!(a => a.getLast()).array,
-						this.expandedFirstSet[t[j].value.name]
-							.map!(a => a.getLast()).array
-					).empty, format(
+				enforce(setIntersection(ifs, jfs).empty, format(
 						"\nFirst first conflict in '%s' between\n"
 						~ "'%s:\n\t%(%s\n\t%)'\nand \'%s:\n\t%(%s\n\t%)'", 
-						rule.name, t[i].value.name, 
-						this.expandedFirstSet[t[i].value.name],
-						t[j].value.name,
-						this.expandedFirstSet[t[j].value.name]
-					)
+						rule.name, t[i].value.name, ifs, t[j].value.name, jfs)
 				);
 			}                      
 		}
