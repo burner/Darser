@@ -17,6 +17,31 @@ void formatIndent(O,Args...)(ref O o, long indent, string str,
 	formattedWrite(o, str, args);
 }
 
+bool isLowerStr(string str) {
+	import std.exception : enforce;
+	enforce(!str.empty);
+
+	return isLower(str[0]);
+}
+
+struct FirstRulePath {
+	string[] path;
+
+	string getLast() const {
+		enforce(!this.path.empty);
+		return this.path.back;
+	}
+
+	void add(string s) {
+		this.path ~= s;
+	}
+
+	bool finished() const {
+		enforce(!this.path.empty);
+		return isLowerStr(this.path.back);
+	}
+}
+
 class Darser {
 	import std.algorithm : setIntersection, setDifference;
 	import std.format;
@@ -26,7 +51,7 @@ class Darser {
 
 	Rule[] rules;
 	bool[string][string] firstSets;
-	string[][string] expandedFirstSet;
+	FirstRulePath[][string] expandedFirstSet;
 
 	string filename;
 
@@ -222,13 +247,6 @@ class Darser {
 		}
 	}
 
-	static bool isLowerStr(string str) {
-		import std.exception : enforce;
-		enforce(!str.empty);
-
-		return isLower(str[0]);
-	}
-
 	Rule getRule(string name) {
 		foreach(rule; this.rules) {
 			if(rule.name == name) {
@@ -238,15 +256,17 @@ class Darser {
 		assert(false, "Rule with name " ~ name ~ " not found");
 	}
 
-	static void addSubRuleFirst(Rule rule, ref string[] toProcess) {
+	static void addSubRuleFirst(Rule rule, ref FirstRulePath[] toProcess) {
 		foreach(subRule; rule.subRules) {
-			toProcess ~= subRule.elements[0].name;
+			FirstRulePath tmp;
+			tmp.add(subRule.elements[0].name);
+			toProcess ~= tmp;
 		}
 	}
 
-	string[] buildTerminalFirstSet(Rule rule) {
+	FirstRulePath[] buildTerminalFirstSet(Rule rule) {
 		import std.algorithm.searching : canFind, find;
-		string[] toProcess = new string[0];
+		FirstRulePath[] toProcess = new FirstRulePath[0];
 		addSubRuleFirst(rule, toProcess);
 
 		string alreadyProcessed;
@@ -328,8 +348,9 @@ class Darser {
 		formatIndent(ltw, 0, "}\n");
 	}
 
-	void genParse(File.LockingTextWriter ltw, const(size_t) idx,
-			const(size_t) off, Trie t, int indent, Trie[] fail)
+	void genParse(File.LockingTextWriter ltw, const(string) ruleName, 
+			const(size_t) idx, const(size_t) off, Trie t, int indent, 
+			Trie[] fail)
 	{
 		writefln("genParse %s %s", t.value.name, t.follow.length);
 
@@ -367,35 +388,24 @@ class Darser {
 
 		for(size_t i = 0; i < t.follow.length; ++i) {
 			for(size_t j = i + 1; j < t.follow.length; ++j) {
-				writefln("tt\n%s %s\n%s %s",
+				enforce(setIntersection(
+						this.expandedFirstSet[t.follow[i].value.name],
+						this.expandedFirstSet[t.follow[j].value.name]
+					).empty, format(
+						"First first conflict in '%s'\nfollowing '%s' between "
+						~ "'%s[%(%s,%)]' and '%s[%(%s,%)]'", ruleName, 
+						t.value.name, 
 						t.follow[i].value.name, 
-							this.expandedFirstSet[t.follow[i].value.name],
-						t.follow[j].value.name, 
-							this.expandedFirstSet[t.follow[j].value.name]
-					);
-				writeln(setDifference(
 						this.expandedFirstSet[t.follow[i].value.name],
+						t.follow[j].value.name,
 						this.expandedFirstSet[t.follow[j].value.name]
-					).array.length == 
-						this.expandedFirstSet[t.follow[i].value.name].length +
-						this.expandedFirstSet[t.follow[j].value.name].length);
-				enforce(setDifference(
-						this.expandedFirstSet[t.follow[i].value.name],
-						this.expandedFirstSet[t.follow[j].value.name]
-					).array.length == 
-						this.expandedFirstSet[t.follow[i].value.name].length +
-						this.expandedFirstSet[t.follow[j].value.name].length, 
-					format(
-						"First first conflict following '%s' between "
-						~ "'%s' and '%s'", t.value.name, 
-						t.follow[i].value.name, t.follow[j].value.name
 					)
 				);
 			}
 		}
 
 		foreach(i, it; t.follow) {
-			genParse(ltw, i, t.follow.length, it, indent + 1, t.follow);
+			genParse(ltw, ruleName, i, t.follow.length, it, indent + 1, t.follow);
 		}
 		
 		//if(t.follow.empty && !t.ruleName.empty) {
@@ -492,15 +502,16 @@ class Darser {
 				if(t[i].value.name == t[j].value.name) {
 					continue;
 				}
-				enforce(setDifference(
+				enforce(setIntersection(
 						this.expandedFirstSet[t[i].value.name],
 						this.expandedFirstSet[t[j].value.name]
-					).array.length == 
-						this.expandedFirstSet[t[i].value.name].length +
-						this.expandedFirstSet[t[j].value.name].length, 
-					format(
-						"First first conflict in '%s' between '%s' and '%s'",
-						rule.name, t[i].value.name, t[j].value.name
+					).empty, format(
+						"First first conflict in '%s'between\n"
+						~ "'%s[%(%s,%)]' and '%s[%(%s,%)]'", rule.name, 
+						t[i].value.name, 
+						this.expandedFirstSet[t[i].value.name],
+						t[j].value.name,
+						this.expandedFirstSet[t[j].value.name]
 					)
 				);
 			}                      
@@ -524,7 +535,7 @@ class Darser {
 		formatIndent(ltw, 1, "%1$s parse%1$sImpl() {\n", rule.name);
 		//formatIndent(ltw, 2, "%1$s ret = refCounted!%1$s(%1$s());\n", rule.name);
 		foreach(i, it; t) {
-			genParse(ltw, i, t.length, it, 2, t);
+			genParse(ltw, rule.name, i, t.length, it, 2, t);
 		}
 			
 		formattedWrite(ltw, "\n");
