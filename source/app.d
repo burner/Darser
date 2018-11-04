@@ -1,5 +1,6 @@
 import std.stdio;
 import dyaml;
+import std.exception : enforce;
 
 import std.array : back, front, empty, popFront, popBack;
 
@@ -19,6 +20,7 @@ void formatIndent(O,Args...)(ref O o, long indent, string str,
 
 bool isLowerStr(string str) {
 	import std.exception : enforce;
+	import std.uni : isLower;
 	enforce(!str.empty);
 
 	return isLower(str[0]);
@@ -43,11 +45,10 @@ struct FirstRulePath {
 }
 
 class Darser {
-	import std.algorithm : setIntersection, setDifference;
+	import std.algorithm : setIntersection, setDifference, map;
 	import std.format;
 	import std.array : empty, array;
 	import std.uni : isLower, isUpper;
-	import std.exception : enforce;
 
 	Rule[] rules;
 	bool[string][string] firstSets;
@@ -269,22 +270,22 @@ class Darser {
 		FirstRulePath[] toProcess = new FirstRulePath[0];
 		addSubRuleFirst(rule, toProcess);
 
-		string alreadyProcessed;
-
-		string[] ret = new string[0];
+		FirstRulePath[] ret = new FirstRulePath[0];
 		while(!toProcess.empty) {
-			string t = toProcess.back;
-			writefln("%s toProcess [%(%s, %)]", t, toProcess);
+			FirstRulePath t = toProcess.back;
+			writefln("%s toProcess [%(%s\n, %)]", t, 
+					toProcess.map!(a => a.getLast())
+				);
 			toProcess.popBack();
 
-			if(isLowerStr(t)) {
+			if(isLowerStr(t.getLast())) {
 				if(!canFind(ret, t)) {
 					ret ~= t;
 				}
 				continue;
 			}
 
-			Rule r = this.getRule(t);
+			Rule r = this.getRule(t.getLast());
 			addSubRuleFirst(r, toProcess);
 		}
 		return ret;
@@ -389,8 +390,10 @@ class Darser {
 		for(size_t i = 0; i < t.follow.length; ++i) {
 			for(size_t j = i + 1; j < t.follow.length; ++j) {
 				enforce(setIntersection(
-						this.expandedFirstSet[t.follow[i].value.name],
+						this.expandedFirstSet[t.follow[i].value.name]
+							.map!(a => a.getLast()).array,
 						this.expandedFirstSet[t.follow[j].value.name]
+							.map!(a => a.getLast()).array
 					).empty, format(
 						"First first conflict in '%s'\nfollowing '%s' between "
 						~ "'%s[%(%s,%)]' and '%s[%(%s,%)]'", ruleName, 
@@ -503,8 +506,10 @@ class Darser {
 					continue;
 				}
 				enforce(setIntersection(
-						this.expandedFirstSet[t[i].value.name],
+						this.expandedFirstSet[t[i].value.name]
+							.map!(a => a.getLast()).array,
 						this.expandedFirstSet[t[j].value.name]
+							.map!(a => a.getLast()).array
 					).empty, format(
 						"First first conflict in '%s'between\n"
 						~ "'%s[%(%s,%)]' and '%s[%(%s,%)]'", rule.name, 
