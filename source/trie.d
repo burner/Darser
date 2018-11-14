@@ -67,7 +67,7 @@ Trie[] ruleToTrie(Rule rule) {
 	import std.array : back;
 	import std.uni : isUpper;
 	auto ret = new Trie;
-	
+
 	foreach(subRule; rule.subRules) {
 		ruleToTrieRecur(ret, subRule, subRule.elements, rule.name);
 	}
@@ -84,7 +84,7 @@ void ruleToTrieRecur(Trie cur, SubRule sr, RulePart[] rp, string ruleName) {
 			con = elem;
 		}
 	}
-	
+
 	if(con is null) {
 		con = new Trie(rp.front);
 		con.subRuleName = sr.name;
@@ -94,10 +94,10 @@ void ruleToTrieRecur(Trie cur, SubRule sr, RulePart[] rp, string ruleName) {
 	if(rp.length > 1) {
 		ruleToTrieRecur(con, sr, rp[1 .. $], ruleName);
 	} else {
-		writefln("maybe something exists already rule '%s' subrule '%s'"
-				~ " overrite with '%s' '%s'",
-				con.ruleName, con.subRuleName, sr.name, sr
-			);
+		//writefln("maybe something exists already rule '%s' subrule '%s'"
+		//		~ " overrite with '%s' '%s'",
+		//		con.ruleName, con.subRuleName, sr.name, sr
+		//	);
 		con.ruleName = ruleName;
 		con.subRuleName = sr.name;
 		con.subRule = sr;
@@ -119,7 +119,7 @@ void ruleToTrieRecur(Trie cur, SubRule sr, RulePart[] rp, string ruleName) {
 					writefln("\tfoo %s", rp.name);
 					cur = elem;
 					continue middle;
-				} else if(elem.value.name == rp.name 
+				} else if(elem.value.name == rp.name
 						&& elem.value.storeName == rp.storeName)
 				{
 					writefln("\tbar %s", rp.name);

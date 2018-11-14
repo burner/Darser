@@ -7,7 +7,7 @@ import std.array : back, front, empty, popFront, popBack;
 import rules;
 import trie;
 
-void formatIndent(O,Args...)(ref O o, long indent, string str, 
+void formatIndent(O,Args...)(ref O o, long indent, string str,
 		auto ref Args args)
 {
 	import std.format : formattedWrite;
@@ -71,6 +71,7 @@ class Darser {
 		this.gen();
 		this.genFirstSet();
 		this.buildTerminalFirstSets();
+
 	}
 
 	void gen() {
@@ -78,22 +79,22 @@ class Darser {
 		foreach(ref Node it; root) {
 			auto jt = it.as!(Node.Pair[])();
 			foreach(ref kt; jt) {
-				this.rules ~= new Rule(kt.key.as!string());	
+				this.rules ~= new Rule(kt.key.as!string());
 				auto subRule = kt.value.as!(Node.Pair[])();
 				foreach(ref lt; subRule) {
 					auto subRuleKey = lt.key.as!string();
 					this.rules.back.subRules ~= new SubRule(subRuleKey);
 					foreach(ref Node subValue; lt.value) {
-						this.rules.back.subRules.back.elements ~= 
+						this.rules.back.subRules.back.elements ~=
 							new RulePart(subValue.as!string());
 					}
 				}
 			}
 		}
 
-		foreach(it; this.rules) {
-			writeln(it.toString());
-		}
+		//foreach(it; this.rules) {
+		//	writeln(it.toString());
+		//}
 	}
 
 	string[] getExpandedFirstSet(string name) {
@@ -129,7 +130,7 @@ class Darser {
 			formattedWrite(ltw, "enum %sEnum {\n", rule.name);
 			foreach(subRule; rule.subRules) {
 				formattedWrite(ltw, "\t%s,\n", subRule.name);
-			
+
 			}
 			formattedWrite(ltw, "}\n\n");
 		}
@@ -137,7 +138,7 @@ class Darser {
 		void generateMembers(File.LockingTextWriter ltw, Rule rule) {
 			RulePart[string] uni = this.unique(rule);
 			foreach(key, value; uni) {
-				if(!value.name.empty && isLower(value.name[0])) {
+				if(!value.name.empty && isLowerStr(value.name)) {
 					formattedWrite(ltw, "\tToken %s;\n", key);
 				} else {
 					formattedWrite(ltw, "\t%s %s;\n", value.name, key);
@@ -152,7 +153,7 @@ class Darser {
 				string[] tmp;
 				foreach(jt; it.elements) {
 					if(jt.storeThis == StoreRulePart.yes) {
-						if(isLower(jt.name[0])) {
+						if(isLowerStr(jt.name)) {
 							tmp ~= "Token";
 						} else {
 							tmp ~= jt.name;
@@ -181,10 +182,10 @@ class Darser {
 				formattedWrite(ltw, "\tthis(%sEnum ruleSelection", rule.name);
 				foreach(jt; it.elements) {
 					if(jt.storeThis == StoreRulePart.yes) {
-						if(isLower(jt.name[0])) {
+						if(isLowerStr(jt.name)) {
 							formattedWrite(ltw, ", Token %s", jt.storeName);
 						} else {
-							formattedWrite(ltw, ", %s %s", 
+							formattedWrite(ltw, ", %s %s",
 									jt.name, jt.storeName
 							);
 						}
@@ -194,7 +195,7 @@ class Darser {
 				formattedWrite(ltw, "\t\tthis.ruleSelection = ruleSelection;\n");
 				foreach(jt; it.elements) {
 					if(jt.storeThis == StoreRulePart.yes) {
-						formattedWrite(ltw, "\t\tthis.%s = %s;\n", 
+						formattedWrite(ltw, "\t\tthis.%s = %s;\n",
 								jt.storeName, jt.storeName
 						);
 					}
@@ -204,7 +205,7 @@ class Darser {
 		}
 
 		void generateVisitor(File.LockingTextWriter ltw, Rule rule) {
-			formattedWrite(ltw, 
+			formattedWrite(ltw,
 `	void visit(Visitor vis) {
 		vis.accept(this);
 	}
@@ -218,13 +219,13 @@ class Darser {
 		}
 		foreach(rule; this.rules) {
 			generateEnum(ltw, rule);
-			formattedWrite(ltw, "class %s {\n", rule.name);	
-			formattedWrite(ltw, "\t%sEnum ruleSelection;\n", rule.name);	
+			formattedWrite(ltw, "class %s {\n", rule.name);
+			formattedWrite(ltw, "\t%sEnum ruleSelection;\n", rule.name);
 			generateMembers(ltw, rule);
 			genereateCTors(ltw, rule);
 			generateVisitor(ltw, rule);
-			formattedWrite(ltw, "}\n\n");	
-			//formattedWrite(ltw, "alias %1$s = RefCounted!(%1$s);\n\n", rule.name);	
+			formattedWrite(ltw, "}\n\n");
+			//formattedWrite(ltw, "alias %1$s = RefCounted!(%1$s);\n\n", rule.name);
 		}
 	}
 
@@ -236,8 +237,8 @@ class Darser {
 			}
 			this.genRule(ltw, rule);
 		}
-		writeln("\n\n\n\nTrie\n");
-		printTrie(t, 0);
+		//writeln("\n\n\n\nTrie\n");
+		//printTrie(t, 0);
 	}
 
 	static void genIndent(File.LockingTextWriter ltw, int indent) {
@@ -276,7 +277,7 @@ class Darser {
 	}
 
 	static void addSubRuleFirst(Rule rule, ref FirstRulePath[] toProcess,
-			string[] old = null) 
+			string[] old = null)
 	{
 		foreach(subRule; rule.subRules) {
 			enforce(!subRule.elements.empty);
@@ -295,9 +296,9 @@ class Darser {
 		FirstRulePath[] ret = new FirstRulePath[0];
 		while(!toProcess.empty) {
 			FirstRulePath t = toProcess.back;
-			writefln("%s toProcess %s", 
-					toProcess.map!(a => a.getLast()), t
-				);
+			//writefln("%s toProcess %s",
+			//		toProcess.map!(a => a.getLast()), t
+			//	);
 			toProcess.popBack();
 
 			if(isLowerStr(t.getLast())) {
@@ -316,7 +317,7 @@ class Darser {
 	void genFirstSet() {
 		foreach(rule; this.rules) {
 			foreach(subRule; rule.subRules) {
-				if(isLower(subRule.elements[0].name[0])) {
+				if(isLowerStr(subRule.elements[0].name)) {
 					this.firstSets[rule.name][subRule.elements[0].name] = true;
 				}
 			}
@@ -371,11 +372,11 @@ class Darser {
 		formatIndent(ltw, 0, "}\n");
 	}
 
-	void genParse(File.LockingTextWriter ltw, const(string) ruleName, 
-			const(size_t) idx, const(size_t) off, Trie t, int indent, 
+	void genParse(File.LockingTextWriter ltw, const(string) ruleName,
+			const(size_t) idx, const(size_t) off, Trie t, int indent,
 			Trie[] fail)
 	{
-		writefln("genParse %s %s", t.value.name, t.follow.length);
+		//writefln("genParse %s %s", t.value.name, t.follow.length);
 
 		if(idx > 0) {
 			formattedWrite(ltw, " else ");
@@ -386,8 +387,8 @@ class Darser {
 		bool isRepeat = false;
 		string prefix = "if";
 
-		if(isLower(t.value.name[0])) {
-			formattedWrite(ltw, 
+		if(isLowerStr(t.value.name)) {
+			formattedWrite(ltw,
 				"%s(this.lex.front.type == TokenType.%s) {\n",
 				prefix, t.value.name
 			);
@@ -418,10 +419,10 @@ class Darser {
 				string[] jfs = this.getExpandedFirstSet(
 										t.follow[j].value.name
 									);
-				writefln("FF %s:\n%s\n%s", t.value.name, ifs, jfs);
+				//writefln("FF %s:\n%s\n%s", t.value.name, ifs, jfs);
 				enforce(setIntersection(ifs, jfs).empty, format(
 						"First first conflict in '%s'\nfollowing '%s' between "
-						~ "'%s[%(%s,%)]' and '%s[%(%s,%)]'", ruleName, 
+						~ "'%s[%(%s,%)]' and '%s[%(%s,%)]'", ruleName,
 						t.value.name, t.follow[i].value.name, ifs,
 						t.follow[j].value.name, jfs
 					)
@@ -432,7 +433,7 @@ class Darser {
 		foreach(i, it; t.follow) {
 			genParse(ltw, ruleName, i, t.follow.length, it, indent + 1, t.follow);
 		}
-		
+
 		//if(t.follow.empty && !t.ruleName.empty) {
 		if(!t.ruleName.empty) {
 			formattedWrite(ltw, "\n");
@@ -448,7 +449,9 @@ class Darser {
 
 	static void genFirst(File.LockingTextWriter ltw, Rule rule) {
 		bool[string] found;
-		formatIndent(ltw, 1, "bool first%s() const {\n", rule.name);
+		formatIndent(ltw, 1, "bool first%s() const pure @nogc @safe {\n",
+				rule.name
+			);
 		formatIndent(ltw, 2, "return ");
 
 		bool first = true;
@@ -460,7 +463,7 @@ class Darser {
 				formattedWrite(ltw, "\n");
 				formatIndent(ltw, 3, " || ");
 			}
-			if(isLower(subRule.elements[0].name[0])) {
+			if(isLowerStr(subRule.elements[0].name)) {
 				formattedWrite(ltw, "this.lex.front.type == TokenType.%s",
 					subRule.elements[0].name
 				);
@@ -477,7 +480,7 @@ class Darser {
 	}
 
 	static void genTrieCtor(File.LockingTextWriter ltw, Trie t, int indent) {
-		//formatIndent(ltw, indent + 1, "ret.ruleSelection = %1$sEnum.%2$s;\n", 
+		//formatIndent(ltw, indent + 1, "ret.ruleSelection = %1$sEnum.%2$s;\n",
 		//	t.ruleName, t.subRuleName
 		//);
 		//formatIndent(ltw, indent + 1, "return ret;");
@@ -517,10 +520,10 @@ class Darser {
 	void genRule(File.LockingTextWriter ltw, Rule rule) {
 		genFirst(ltw, rule);
 		auto t = ruleToTrie(rule);
-		writeln("Rule Trie Start");
-		foreach(it; t) {
-			writeln(it.toString());
-		}
+		//writeln("Rule Trie Start");
+		//foreach(it; t) {
+		//	writeln(it.toString());
+		//}
 		for(size_t i = 0; i < t.length; ++i) {
 			for(size_t j = i + 1; j < t.length; ++j) {
 				string[] ifs = this.getExpandedFirstSet(
@@ -529,28 +532,28 @@ class Darser {
 				string[] jfs = this.getExpandedFirstSet(
 										t[j].value.name
 									);
-				writefln("FF %s:\n%s\n%s", rule.name, ifs, jfs);
+				//writefln("FF %s:\n%s\n%s", rule.name, ifs, jfs);
 				// Same subrules with equal name we can handle
 				if(t[i].value.name == t[j].value.name
-						|| (isLowerStr(t[i].value.name) 
+						|| (isLowerStr(t[i].value.name)
 							&& isLowerStr(t[j].value.name))
 				) {
 					continue;
 				}
 				enforce(setIntersection(ifs, jfs).empty, format(
 						"\nFirst first conflict in '%s' between\n"
-						~ "'%s:\n\t%(%s\n\t%)'\nand \'%s:\n\t%(%s\n\t%)'", 
+						~ "'%s:\n\t%(%s\n\t%)'\nand \'%s:\n\t%(%s\n\t%)'",
 						rule.name, t[i].value.name, ifs, t[j].value.name, jfs)
 				);
-			}                      
+			}
 		}
 		//return;
-		writeln("Rule Trie Done");
+		//writeln("Rule Trie Done");
 		formatIndent(ltw, 1, "%1$s parse%1$s() {\n", rule.name);
 		formatIndent(ltw, 2, "try {\n");
 		formatIndent(ltw, 3, "return this.parse%sImpl();\n", rule.name);
 		formatIndent(ltw, 2, "} catch(ParseException e) {\n");
-		formatIndent(ltw, 3, 
+		formatIndent(ltw, 3,
 				"throw new ParseException(\n");
 		formatIndent(ltw, 4, "\"While parsing a %s an Exception "
 				~ "was thrown.\",\n", rule.name
@@ -565,7 +568,7 @@ class Darser {
 		foreach(i, it; t) {
 			genParse(ltw, rule.name, i, t.length, it, 2, t);
 		}
-			
+
 		formattedWrite(ltw, "\n");
 		genThrow(ltw, 2, t);
 		formattedWrite(ltw, "\n");
@@ -607,12 +610,12 @@ class Darser {
 		formatIndent(ltw, 2, "super(msg, f, l);\n");
 		formatIndent(ltw, 2, "this.line = l;\n");
 		formatIndent(ltw, 1, "}\n\n");
-		formatIndent(ltw, 1, 
+		formatIndent(ltw, 1,
 			"this(string msg, ParseException other) {\n"
 		);
 		formatIndent(ltw, 2, "super(msg, other);\n");
 		formatIndent(ltw, 1, "}\n\n");
-		formatIndent(ltw, 1, 
+		formatIndent(ltw, 1,
 			"this(string msg, ParseException other, string f, int l) {\n"
 		);
 		formatIndent(ltw, 2, "super(msg, f, l, other);\n");
@@ -629,20 +632,22 @@ class Darser {
 
 
 struct Options {
-	string inputFile = "graphql2.yaml";
+	string inputFile;
 	string astOut;
 	string parserOut;
 	string visitorOut;
 	string exceptionOut;
-	bool printHelp = false;
+	bool printHelp;
 	bool customParseFunctions;
+	string[] expendedFirst;
 }
 
-const(Options) getOptions(string[] args) {
-	import std.getopt;
-	Options options;
+Options options;
 
-	auto rslt = getopt(args, 
+void getOptions(string[] args) {
+	import std.getopt;
+
+	auto rslt = getopt(args,
 			"i|inputFile", "The grammar input file", &options.inputFile,
 			"a|astOut", "The output file for the ast node.", &options.astOut,
 			"v|visitorOut", "The output file for the visitor.",
@@ -652,28 +657,38 @@ const(Options) getOptions(string[] args) {
 			"p|parseOut", "The output file for the parser node.",
 				&options.parserOut,
 			"c|custom", "Pass if you want/need to provide custom parse functions.",
-				&options.customParseFunctions
+				&options.customParseFunctions,
+			"f|first", "Pass name of rule to get the first set",
+				&options.expendedFirst
 		);
 
 	if(rslt.helpWanted) {
 		defaultGetoptPrinter("", rslt.options);
 		options.printHelp = true;
 	}
-
-	return options;
 }
 
 void main(string[] args) {
 	import std.array : empty;
 
-	auto opts = getOptions(args);
+	getOptions(args);
+	const opts = options;
 	if(opts.printHelp) {
 		return;
 	}
 
 	auto darser = new Darser(opts.inputFile);
-	writeln(darser.firstSets);
-	writefln("\n\n%(\n%s%)", darser.expandedFirstSet);
+	foreach(ff; options.expendedFirst) {
+		if(ff !in darser.expandedFirstSet) {
+			writeln("No rule named '%s' exists", ff);
+			continue;
+		}
+		writefln("ExpandedFirstSet for '%s': {", ff);
+		foreach(fs; darser.expandedFirstSet[ff]) {
+			writefln("%s", fs);
+		}
+		writeln("}");
+	}
 
 	if(!opts.astOut.empty) {
 		auto f = File(opts.astOut, "w");
