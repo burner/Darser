@@ -43,6 +43,11 @@ struct FirstRulePath {
 		return isLowerStr(this.path.back);
 	}
 
+	int opCmp(ref FirstRulePath other) {
+		import std.algorithm.comparison : cmp;
+		return cmp(this.path.back, other.path.back);
+	}
+
 	string toString() {
 		import std.array : appender;
 		import std.format : formattedWrite;
@@ -261,9 +266,11 @@ class Darser {
 	}
 
 	void buildTerminalFirstSets() {
+		import std.algorithm.sorting : sort;
 		foreach(rule; this.rules) {
 			this.expandedFirstSet[rule.name] =
 				this.buildTerminalFirstSet(rule);
+			this.expandedFirstSet[rule.name].sort();
 		}
 	}
 
@@ -534,16 +541,19 @@ class Darser {
 									);
 				//writefln("FF %s:\n%s\n%s", rule.name, ifs, jfs);
 				// Same subrules with equal name we can handle
-				if(t[i].value.name == t[j].value.name
-						|| (isLowerStr(t[i].value.name)
-							&& isLowerStr(t[j].value.name))
-				) {
-					continue;
-				}
-				enforce(setIntersection(ifs, jfs).empty, format(
+				//if(t[i].value.name == t[j].value.name
+				//		|| (isLowerStr(t[i].value.name)
+				//			&& isLowerStr(t[j].value.name))
+				//) {
+				//	continue;
+				//}
+				auto s = setIntersection(ifs, jfs);
+				//writeln(s);
+				enforce(s.empty, format(
 						"\nFirst first conflict in '%s' between\n"
-						~ "'%s:\n\t%(%s\n\t%)'\nand \'%s:\n\t%(%s\n\t%)'",
-						rule.name, t[i].value.name, ifs, t[j].value.name, jfs)
+						~ "'%s:\n\t%(%s\n\t%)'\nand \'%s:\n\t%(%s\n\t%)'\n%s",
+						rule.name, t[i].value.name, ifs, t[j].value.name, jfs,
+						s)
 				);
 			}
 		}
