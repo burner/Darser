@@ -9,7 +9,7 @@ import std.typecons : Flag;
 alias StoreRulePart = Flag!"StoreRulePart";
 
 class RulePart {
-	StoreRulePart storeThis;	
+	StoreRulePart storeThis;
 	string name;
 	string storeName;
 
@@ -63,9 +63,15 @@ class SubRule {
 class Rule {
 	SubRule[] subRules;
 	string name;
+	bool isExtern;
 
 	this(string name) {
 		this.name = name;
+	}
+
+	this(string name, bool e) {
+		this.name = name;
+		this.isExtern = e;
 	}
 
 	override string toString() pure const @safe {

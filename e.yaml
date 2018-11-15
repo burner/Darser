@@ -14,3 +14,6 @@
 
 List:
     L: [ lparen#lp, PrimaryExpression#pe, rparen]
+    F: [ Foo#foo ]
+
+Foo: extern

@@ -64,10 +64,12 @@ class Darser {
 	import std.format;
 	import std.array : empty, array;
 	import std.uni : isLower, isUpper;
+	import std.file : readText;
 
 	Rule[] rules;
 	bool[string][string] firstSets;
 	FirstRulePath[][string] expandedFirstSet;
+	Rule[string] externRules;
 
 	string filename;
 
@@ -76,24 +78,30 @@ class Darser {
 		this.gen();
 		this.genFirstSet();
 		this.buildTerminalFirstSets();
-
 	}
 
 	void gen() {
 		auto root = Loader.fromFile(this.filename);
 		foreach(ref Node it; root) {
+			// Node.Pair has a .key and a .value
 			auto jt = it.as!(Node.Pair[])();
 			foreach(ref kt; jt) {
-				this.rules ~= new Rule(kt.key.as!string());
+				if(kt.value.isScalar() && kt.value.as!string() == "extern") {
+					this.externRules[kt.key.as!string()] =
+							new Rule(kt.key.as!string(), true);
+					continue;
+				}
+				Rule nr = new Rule(kt.key.as!string());
 				auto subRule = kt.value.as!(Node.Pair[])();
 				foreach(ref lt; subRule) {
 					auto subRuleKey = lt.key.as!string();
-					this.rules.back.subRules ~= new SubRule(subRuleKey);
+					nr.subRules ~= new SubRule(subRuleKey);
 					foreach(ref Node subValue; lt.value) {
-						this.rules.back.subRules.back.elements ~=
+						nr.subRules.back.elements ~=
 							new RulePart(subValue.as!string());
 					}
 				}
+				this.rules ~= nr;
 			}
 		}
 
@@ -122,14 +130,14 @@ class Darser {
 		return ret;
 	}
 
-	void generateClasses(File.LockingTextWriter ltw, bool customParseFunctions) {
+	void generateClasses(File.LockingTextWriter ltw, string customParseFilename)
+	{
 		formatIndent(ltw, 0, "module ast;\n\n");
-		formatIndent(ltw, 0, "import std.typecons : RefCounted, refCounted;\n\n");
-		if(customParseFunctions) {
-			formatIndent(ltw, 0, "public import astcustom;\n\n");
-		}
 		formatIndent(ltw, 0, "import tokenmodule;\n\n");
 		formatIndent(ltw, 0, "import visitor;\n\n");
+		if(!customParseFilename.empty) {
+			formatIndent(ltw, 0, readText(customParseFilename));
+		}
 
 		void generateEnum(File.LockingTextWriter ltw, Rule rule) {
 			formattedWrite(ltw, "enum %sEnum {\n", rule.name);
@@ -272,6 +280,10 @@ class Darser {
 				this.buildTerminalFirstSet(rule);
 			this.expandedFirstSet[rule.name].sort();
 		}
+
+		foreach(erule; this.externRules) {
+			this.expandedFirstSet[erule.name] = new FirstRulePath[0];
+		}
 	}
 
 	Rule getRule(string name) {
@@ -279,6 +291,9 @@ class Darser {
 			if(rule.name == name) {
 				return rule;
 			}
+		}
+		if(name in this.externRules) {
+			return this.externRules[name];
 		}
 		assert(false, "Rule with name " ~ name ~ " not found");
 	}
@@ -364,16 +379,63 @@ class Darser {
 		formatIndent(ltw, 1, "}\n");
 	}
 
-	void genDefaultVisitor(File.LockingTextWriter ltw) {
-		//formatIndent(ltw, 0, "module visitor;\n\n");
-		formatIndent(ltw, 0, "import std.typecons : RefCounted, refCounted;\n\n");
+	static void genTreeVis(File.LockingTextWriter ltw, Rule rule) {
+		formatIndent(ltw, 0, "\n");
+		formatIndent(ltw, 1, "override void accept(const(%s) obj) {\n",
+			rule.name
+		);
+
+		formatIndent(ltw, 2, "this.genIndent();\n");
+		formatIndent(ltw, 2, "writeln(Unqual!(typeof(obj)).stringof"
+			~ ",\":\", obj.ruleSelection);\n");
+		formatIndent(ltw, 2, "++this.depth;\n");
+		formatIndent(ltw, 2, "super.accept(obj);\n");
+		formatIndent(ltw, 2, "--this.depth;\n");
+		formatIndent(ltw, 1, "}\n");
+	}
+
+	void genDefaultVisitor(File.LockingTextWriter ltw, string customAstFilename)
+	{
+		formatIndent(ltw, 0, "module visitor;\n\n");
 		formatIndent(ltw, 0, "import ast;\n");
 		formatIndent(ltw, 0, "import tokenmodule;\n\n");
-		formatIndent(ltw, 0, "struct Visitor {\n");
+		formatIndent(ltw, 0, "class Visitor {\n");
+
+		if(!customAstFilename.empty) {
+			formatIndent(ltw, 0, readText(customAstFilename));
+		}
 
 		foreach(rule; this.rules) {
 			genVis!false(ltw, rule);
 			genVis!true(ltw, rule);
+		}
+
+		formatIndent(ltw, 0, "}\n");
+	}
+
+	void genTreeVisitor(File.LockingTextWriter ltw) {
+		formatIndent(ltw, 0, "module treevisitor;\n\n");
+		formatIndent(ltw, 0, "import std.traits : Unqual;\n");
+		formatIndent(ltw, 0, "import ast;\n");
+		formatIndent(ltw, 0, "import visitor;\n");
+		formatIndent(ltw, 0, "import tokenmodule;\n\n");
+		formatIndent(ltw, 0, "class TreeVisitor : Visitor {\n");
+		formatIndent(ltw, 1, "import std.stdio : write, writeln;\n\n");
+		formatIndent(ltw, 1, "alias accept = Visitor.accept;\n\n");
+		formatIndent(ltw, 1, "int depth;\n\n");
+		formatIndent(ltw, 1, `this(int d) {
+		this.depth = d;
+	}
+
+`);
+		formatIndent(ltw, 1, `void genIndent() {
+		foreach(i; 0 .. this.depth) {
+			write("    ");
+		}
+	}
+`);
+		foreach(rule; this.rules) {
+			genTreeVis(ltw, rule);
 		}
 
 		formatIndent(ltw, 0, "}\n");
@@ -585,14 +647,11 @@ class Darser {
 		formatIndent(ltw, 1, "}\n\n");
 	}
 
-	void genParserClass(File.LockingTextWriter ltw, bool customParseFunctions) {
+	void genParserClass(File.LockingTextWriter ltw, string customParseAst) {
 		formatIndent(ltw, 0, "module parser;\n\n");
 		formatIndent(ltw, 0, "import std.typecons : RefCounted, refCounted;\n");
 		formatIndent(ltw, 0, "import std.format : format;\n");
 		formatIndent(ltw, 0, "import ast;\n");
-		if(customParseFunctions) {
-			formatIndent(ltw, 0, "public import parsercustom;\n\n");
-		}
 		formatIndent(ltw, 0, "import tokenmodule;\n\n");
 		formatIndent(ltw, 0, "import lexer;\n\n");
 		formatIndent(ltw, 0, "import exception;\n\n");
@@ -605,6 +664,9 @@ class Darser {
 		formatIndent(ltw, 2, "this.lex = lex;\n");
 		formatIndent(ltw, 1, "}\n\n");
 		this.genRules(ltw);
+		if(!customParseAst.empty) {
+			formattedWrite(ltw, readText(customParseAst));
+		}
 		formatIndent(ltw, 0, "}\n");
 	}
 
@@ -646,9 +708,12 @@ struct Options {
 	string astOut;
 	string parserOut;
 	string visitorOut;
+	string treeVisitorOut;
 	string exceptionOut;
 	bool printHelp;
-	bool customParseFunctions;
+	string customParseFile;
+	string customAstFile;
+	string customVisFile;
 	string[] expendedFirst;
 }
 
@@ -662,12 +727,18 @@ void getOptions(string[] args) {
 			"a|astOut", "The output file for the ast node.", &options.astOut,
 			"v|visitorOut", "The output file for the visitor.",
 				&options.visitorOut,
+			"t|treeVisitorOut", "The output file for the tree visitor.",
+				&options.treeVisitorOut,
 			"e|exceptionOut", "The output file for the ParseException.",
 				&options.exceptionOut,
 			"p|parseOut", "The output file for the parser node.",
 				&options.parserOut,
-			"c|custom", "Pass if you want/need to provide custom parse functions.",
-				&options.customParseFunctions,
+			"customParse", "Filename of custom parse functions",
+				&options.customParseFile,
+			"customAst", "Filename of custom AST Classes",
+				&options.customAstFile,
+			"customVis", "Filename of custom Vistor member functions",
+				&options.customVisFile,
 			"f|first", "Pass name of rule to get the first set",
 				&options.expendedFirst
 		);
@@ -703,25 +774,32 @@ void main(string[] args) {
 	if(!opts.astOut.empty) {
 		auto f = File(opts.astOut, "w");
 		darser.generateClasses(f.lockingTextWriter(),
-				opts.customParseFunctions);
+				opts.customAstFile);
 	} else {
 		darser.generateClasses(stderr.lockingTextWriter(),
-				opts.customParseFunctions);
+				opts.customAstFile);
 	}
 
 	if(!opts.parserOut.empty) {
 		auto f = File(opts.parserOut, "w");
-		darser.genParserClass(f.lockingTextWriter(), opts.customParseFunctions);
+		darser.genParserClass(f.lockingTextWriter(), opts.customParseFile);
 	} else {
 		darser.genParserClass(stderr.lockingTextWriter(),
-				opts.customParseFunctions);
+				opts.customParseFile);
 	}
 
 	if(!opts.visitorOut.empty) {
 		auto f = File(opts.visitorOut, "w");
-		darser.genDefaultVisitor(f.lockingTextWriter());
+		darser.genDefaultVisitor(f.lockingTextWriter(), opts.customVisFile);
 	} else {
-		darser.genDefaultVisitor(stderr.lockingTextWriter());
+		darser.genDefaultVisitor(stderr.lockingTextWriter(), opts.customVisFile);
+	}
+
+	if(!opts.treeVisitorOut.empty) {
+		auto f = File(opts.treeVisitorOut, "w");
+		darser.genTreeVisitor(f.lockingTextWriter());
+	} else {
+		darser.genTreeVisitor(stderr.lockingTextWriter());
 	}
 
 	if(!opts.exceptionOut.empty) {
