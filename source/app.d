@@ -553,7 +553,7 @@ class Darser {
 		//	t.ruleName, t.subRuleName
 		//);
 		//formatIndent(ltw, indent + 1, "return ret;");
-		formatIndent(ltw, indent + 1, "return this.alloc.make!%s(%1$sEnum.%2$s\n",
+		formatIndent(ltw, indent + 1, "return new %s(%1$sEnum.%2$s\n",
 				t.ruleName, t.subRuleName
 			);
 		assert(t.subRule !is null);
@@ -651,24 +651,17 @@ class Darser {
 		formatIndent(ltw, 0, "module parser;\n\n");
 		formatIndent(ltw, 0, "import std.typecons : RefCounted, refCounted;\n");
 		formatIndent(ltw, 0, "import std.format : format;\n");
-		formatIndent(ltw, 0, "import std.experimental.allocator;\n");
 		formatIndent(ltw, 0, "import ast;\n");
 		formatIndent(ltw, 0, "import tokenmodule;\n\n");
 		formatIndent(ltw, 0, "import lexer;\n\n");
 		formatIndent(ltw, 0, "import exception;\n\n");
 
-		formatIndent(ltw, 0, "auto makeParser(A)(Lexer l, ref A alloc) {\n");
-		formatIndent(ltw, 1, "return Parser!A(l, &alloc);\n");
-		formatIndent(ltw, 0, "}\n");
-
-		formatIndent(ltw, 0, "struct Parser(A) {\n");
+		formatIndent(ltw, 0, "struct Parser {\n");
 		formatIndent(ltw, 1, "import std.array : appender;\n\n");
 		formatIndent(ltw, 1, "import std.format : formattedWrite;\n\n");
 		formatIndent(ltw, 1, "Lexer lex;\n\n");
-		formatIndent(ltw, 1, "A* alloc;\n\n");
-		formatIndent(ltw, 1, "this(Lexer lex, A* alloc) {\n");
+		formatIndent(ltw, 1, "this(Lexer lex) {\n");
 		formatIndent(ltw, 2, "this.lex = lex;\n");
-		formatIndent(ltw, 2, "this.alloc = alloc;\n");
 		formatIndent(ltw, 1, "}\n\n");
 		this.genRules(ltw);
 		if(!customParseAst.empty) {
