@@ -132,9 +132,11 @@ class Darser {
 
 	void generateClasses(File.LockingTextWriter ltw, string customParseFilename)
 	{
-		formatIndent(ltw, 0, "module ast;\n\n");
-		formatIndent(ltw, 0, "import tokenmodule;\n\n");
-		formatIndent(ltw, 0, "import visitor;\n\n");
+		formatIndent(ltw, 0, "module %sast;\n\n", options.getAstModule());
+		formatIndent(ltw, 0, "import %stokenmodule;\n\n",
+				options.getTokenModule());
+		formatIndent(ltw, 0, "import %svisitor;\n\n",
+				options.getVisitorModule());
 		if(!customParseFilename.empty) {
 			formatIndent(ltw, 0, readText(customParseFilename));
 		}
@@ -396,9 +398,10 @@ class Darser {
 
 	void genDefaultVisitor(File.LockingTextWriter ltw, string customAstFilename)
 	{
-		formatIndent(ltw, 0, "module visitor;\n\n");
-		formatIndent(ltw, 0, "import ast;\n");
-		formatIndent(ltw, 0, "import tokenmodule;\n\n");
+		formatIndent(ltw, 0, "module %svisitor;\n\n", options.getVisitorModule());
+		formatIndent(ltw, 0, "import %sast;\n", options.getAstModule());
+		formatIndent(ltw, 0, "import %stokenmodule;\n\n",
+				options.getTokenModule());
 		formatIndent(ltw, 0, "class Visitor {\n");
 
 		if(!customAstFilename.empty) {
@@ -414,11 +417,13 @@ class Darser {
 	}
 
 	void genTreeVisitor(File.LockingTextWriter ltw) {
-		formatIndent(ltw, 0, "module treevisitor;\n\n");
+		formatIndent(ltw, 0, "module %streevisitor;\n\n",
+				options.getTreeVisitorModule());
 		formatIndent(ltw, 0, "import std.traits : Unqual;\n");
-		formatIndent(ltw, 0, "import ast;\n");
-		formatIndent(ltw, 0, "import visitor;\n");
-		formatIndent(ltw, 0, "import tokenmodule;\n\n");
+		formatIndent(ltw, 0, "import %sast;\n", options.getAstModule());
+		formatIndent(ltw, 0, "import %svisitor;\n", options.getVisitorModule());
+		formatIndent(ltw, 0, "import %stokenmodule;\n\n",
+				options.getTokenModule());
 		formatIndent(ltw, 0, "class TreeVisitor : Visitor {\n");
 		formatIndent(ltw, 1, "import std.stdio : write, writeln;\n\n");
 		formatIndent(ltw, 1, "alias accept = Visitor.accept;\n\n");
@@ -648,13 +653,15 @@ class Darser {
 	}
 
 	void genParserClass(File.LockingTextWriter ltw, string customParseAst) {
-		formatIndent(ltw, 0, "module parser;\n\n");
+		formatIndent(ltw, 0, "module %sparser;\n\n", options.getParserModule());
 		formatIndent(ltw, 0, "import std.typecons : RefCounted, refCounted;\n");
 		formatIndent(ltw, 0, "import std.format : format;\n");
-		formatIndent(ltw, 0, "import ast;\n");
-		formatIndent(ltw, 0, "import tokenmodule;\n\n");
-		formatIndent(ltw, 0, "import lexer;\n\n");
-		formatIndent(ltw, 0, "import exception;\n\n");
+		formatIndent(ltw, 0, "import %sast;\n", options.getAstModule());
+		formatIndent(ltw, 0, "import %stokenmodule;\n\n",
+				options.getTokenModule());
+		formatIndent(ltw, 0, "import %slexer;\n\n", options.getLexerModule());
+		formatIndent(ltw, 0, "import %sexception;\n\n",
+				options.getExceptionModule());
 
 		formatIndent(ltw, 0, "struct Parser {\n");
 		formatIndent(ltw, 1, "import std.array : appender;\n\n");
@@ -671,7 +678,8 @@ class Darser {
 	}
 
 	static void genParseException(File.LockingTextWriter ltw) {
-		formatIndent(ltw, 0, "module exception;\n\n");
+		formatIndent(ltw, 0, "module %sexception;\n\n",
+				options.getExceptionModule());
 
 		formatIndent(ltw, 0, "class ParseException : Exception {\n");
 		formatIndent(ltw, 1, "int line;\n");
@@ -702,19 +710,95 @@ class Darser {
 	}
 }
 
-
 struct Options {
 	string inputFile;
 	string astOut;
+	string astModule;
 	string parserOut;
+	string parserModule;
 	string visitorOut;
+	string visitorModule;
 	string treeVisitorOut;
+	string treeVisitorModule;
+	string tokenModule;
+	string lexerModule;
 	string exceptionOut;
+	string exceptionModule;
 	bool printHelp;
 	string customParseFile;
 	string customAstFile;
 	string customVisFile;
 	string[] expendedFirst;
+
+	string getParserModule() {
+		if(this.parserModule.empty) {
+			return "";
+		} else if(this.parserModule.back == '.') {
+			return this.parserModule;
+		} else {
+			return this.parserModule ~ ".";
+		}
+	}
+
+	string getExceptionModule() {
+		if(this.exceptionModule.empty) {
+			return "";
+		} else if(this.exceptionModule.back == '.') {
+			return this.exceptionModule;
+		} else {
+			return this.exceptionModule ~ ".";
+		}
+	}
+
+	string getLexerModule() {
+		if(this.lexerModule.empty) {
+			return "";
+		} else if(this.lexerModule.back == '.') {
+			return this.lexerModule;
+		} else {
+			return this.lexerModule ~ ".";
+		}
+	}
+
+	string getTreeVisitorModule() {
+		if(this.treeVisitorModule.empty) {
+			return "";
+		} else if(this.treeVisitorModule.back == '.') {
+			return this.treeVisitorModule;
+		} else {
+			return this.treeVisitorModule ~ ".";
+		}
+	}
+
+	string getTokenModule() {
+		if(this.tokenModule.empty) {
+			return "";
+		} else if(this.tokenModule.back == '.') {
+			return this.tokenModule;
+		} else {
+			return this.tokenModule ~ ".";
+		}
+	}
+
+	string getVisitorModule() {
+		if(this.visitorModule.empty) {
+			return "";
+		} else if(this.visitorModule.back == '.') {
+			return this.visitorModule;
+		} else {
+			return this.visitorModule ~ ".";
+		}
+	}
+
+	string getAstModule() {
+		if(this.astModule.empty) {
+			return "";
+		} else if(this.astModule.back == '.') {
+			return this.astModule;
+		} else {
+			return this.astModule ~ ".";
+		}
+	}
 }
 
 Options options;
@@ -725,14 +809,30 @@ void getOptions(string[] args) {
 	auto rslt = getopt(args,
 			"i|inputFile", "The grammar input file", &options.inputFile,
 			"a|astOut", "The output file for the ast node.", &options.astOut,
+			"b|astModule", "The module name of the ast module.",
+				&options.astModule,
 			"v|visitorOut", "The output file for the visitor.",
 				&options.visitorOut,
+			"w|visitorModule", "The module name of the visitor module.",
+				&options.visitorModule,
 			"t|treeVisitorOut", "The output file for the tree visitor.",
 				&options.treeVisitorOut,
+			"r|treeVisitorModule", "The module name of the treeVisitor module.",
+				&options.treeVisitorModule,
+			"u|tokenModule", "The module name of the token module.",
+				&options.tokenModule,
+			"s|lexerModule", "The module name of the lexer module.",
+				&options.lexerModule,
 			"e|exceptionOut", "The output file for the ParseException.",
 				&options.exceptionOut,
+			"g|exceptionModule",
+				"The module name of the exception module.",
+				&options.exceptionModule,
 			"p|parseOut", "The output file for the parser node.",
 				&options.parserOut,
+			"q|parserModule",
+				"The module name of the parserModule module.",
+				&options.parserModule,
 			"customParse", "Filename of custom parse functions",
 				&options.customParseFile,
 			"customAst", "Filename of custom AST Classes",
