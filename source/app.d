@@ -589,7 +589,6 @@ class Darser {
 
 	void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail) {
 		formatIndent(ltw, indent, "auto app = appender!string();\n");
-		formatIndent(ltw, indent, "// fail size %d\n", fail.length);
 		formatIndent(ltw, indent, "formattedWrite(app, \n");
 		string[] follows;
 		foreach(htx, ht; fail) {
