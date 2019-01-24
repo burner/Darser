@@ -734,34 +734,6 @@ class ParseException : Exception {
 }
 `;
 		formattedWrite(ltw, t, options.getExceptionModule());
-		/*formatIndent(ltw, 0, "module %sexception;\n\n",
-
-		formatIndent(ltw, 0, "class ParseException : Exception {\n");
-		formatIndent(ltw, 1, "int line;\n");
-		formatIndent(ltw, 1, "this(string msg) {\n");
-		formatIndent(ltw, 2, "super(msg);\n");
-		formatIndent(ltw, 1, "}\n\n");
-		formatIndent(ltw, 1, "this(string msg, string f, int l) {\n");
-		formatIndent(ltw, 2, "super(msg, f, l);\n");
-		formatIndent(ltw, 2, "this.line = l;\n");
-		formatIndent(ltw, 1, "}\n\n");
-		formatIndent(ltw, 1,
-			"this(string msg, ParseException other) {\n"
-		);
-		formatIndent(ltw, 2, "super(msg, other);\n");
-		formatIndent(ltw, 1, "}\n\n");
-		formatIndent(ltw, 1,
-			"this(string msg, ParseException other, string f, int l) {\n"
-		);
-		formatIndent(ltw, 2, "super(msg, f, l, other);\n");
-		formatIndent(ltw, 2, "this.line = l;\n");
-		formatIndent(ltw, 1, "}\n\n");
-		formatIndent(ltw, 1, "override string toString() {\n");
-		formatIndent(ltw, 2, "import std.format : format;\n");
-		formatIndent(ltw, 2, "return format(\"%%s at %%d:\", super.msg, "
-			~ "this.line);\n");
-		formatIndent(ltw, 1, "}\n");
-		formatIndent(ltw, 0, "}\n");*/
 	}
 }
 
