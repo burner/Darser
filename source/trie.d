@@ -10,6 +10,7 @@ class Trie {
 	Trie[] follow;
 	RulePart value;
 	SubRule subRule;
+	string[] subRuleNames;
 	string subRuleName;
 	string ruleName;
 
@@ -76,6 +77,8 @@ Trie[] ruleToTrie(Rule rule) {
 }
 
 void ruleToTrieRecur(Trie cur, SubRule sr, RulePart[] rp, string ruleName) {
+	import std.algorithm : sort, uniq;
+	import std.array : array;
 	Trie con;
 
 	// find the con(tinuing) Trie node
@@ -91,6 +94,9 @@ void ruleToTrieRecur(Trie cur, SubRule sr, RulePart[] rp, string ruleName) {
 		cur.follow ~= con;
 	}
 
+	con.subRuleNames ~= ruleName;
+	con.subRuleNames = con.subRuleNames.sort.uniq.array;
+
 	if(rp.length > 1) {
 		ruleToTrieRecur(con, sr, rp[1 .. $], ruleName);
 	} else {
@@ -103,49 +109,3 @@ void ruleToTrieRecur(Trie cur, SubRule sr, RulePart[] rp, string ruleName) {
 		con.subRule = sr;
 	}
 }
-
-/*Trie[] ruleToTrie(Rule rule) {
-	import std.array : back;
-	import std.uni : isUpper;
-	auto ret = new Trie;
-
-	foreach(subRule; rule.subRules) {
-		writefln("sr %s ret.length %s", subRule, ret.follow.length);
-		Trie cur = ret;
-		middle: foreach(idx, rp; subRule.elements) {
-			writefln("rp.name %s", rp.name);
-			foreach(elem; cur.follow) {
-				if(isUpper(rp.name[0]) && elem.value.name == rp.name) {
-					writefln("\tfoo %s", rp.name);
-					cur = elem;
-					continue middle;
-				} else if(elem.value.name == rp.name
-						&& elem.value.storeName == rp.storeName)
-				{
-					writefln("\tbar %s", rp.name);
-					cur = elem;
-					continue middle;
-				}
-			}
-
-			writefln("bar.name %s", rp.name);
-			auto ne = new Trie(rp);
-			ne.subRule = subRule;
-			if(idx + 1 == subRule.elements.length) {
-				writefln("baz.ruleName %s", subRule);
-				ne.ruleName = rule.name;
-			}
-
-			cur.follow ~= ne;
-			cur = ne;
-		}
-		cur.subRuleName = subRule.name;
-	}
-
-	printTrie(ret, 0);
-	//writefln("ret: %s", ret.toString());
-	//foreach(it; ret.follow) {
-	//	writefln("\t%s", it.value.name);
-	//}
-	return ret.follow;
-}*/

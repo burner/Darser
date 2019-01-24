@@ -1,8 +1,11 @@
 import std.stdio;
-import dyaml;
 import std.exception : enforce;
-
+import std.format;
+import std.algorithm.iteration : joiner;
+import std.conv : to;
 import std.array : back, front, empty, popFront, popBack;
+
+import dyaml;
 
 import rules;
 import trie;
@@ -34,6 +37,11 @@ struct FirstRulePath {
 		return this.path.back;
 	}
 
+	string getFirst() const {
+		enforce(!this.path.empty);
+		return this.path.front;
+	}
+
 	void add(string s) {
 		this.path ~= s;
 	}
@@ -57,11 +65,18 @@ struct FirstRulePath {
 		formattedWrite(app, "%s", this.path.joiner(" -> "));
 		return app.data;
 	}
+
+	string toFollowError() {
+		if(this.getFirst() != this.getLast()) {
+			return format("%s -> %s", this.getLast(), this.getFirst());
+		} else {
+			return format("%s", this.getFirst());
+		}
+	}
 }
 
 class Darser {
 	import std.algorithm : setIntersection, setDifference, map;
-	import std.format;
 	import std.array : empty, array;
 	import std.uni : isLower, isUpper;
 	import std.file : readText;
@@ -459,13 +474,17 @@ class Darser {
 		}
 
 		bool isRepeat = false;
-		string prefix = "if";
 
 		if(isLowerStr(t.value.name)) {
 			formattedWrite(ltw,
-				"%s(this.lex.front.type == TokenType.%s) {\n",
-				prefix, t.value.name
+				"if(this.lex.front.type == TokenType.%s) {\n",
+				t.value.name
 			);
+			if(t.subRule) {
+				formatIndent(ltw, indent + 1, "// SubRule.name %s\n",
+					t.subRule.name
+				);
+			}
 			if(t.value.storeThis) {
 				formatIndent(ltw, indent + 1, "Token %s = this.lex.front;\n",
 					t.value.storeName
@@ -473,7 +492,12 @@ class Darser {
 			}
 			formatIndent(ltw, indent + 1, "this.lex.popFront();\n");
 		} else {
-			formattedWrite(ltw, "%s(this.first%s()) {\n", prefix, t.value.name);
+			formattedWrite(ltw, "if(this.first%s()) {\n", t.value.name);
+			if(t.subRule) {
+				formatIndent(ltw, indent + 1, "// SubRule.name %s\n",
+					t.subRule.name
+				);
+			}
 			genIndent(ltw, indent + 1);
 			if(t.value.storeThis) {
 				formattedWrite(ltw, "%1$s %2$s = this.parse%1$s();\n",
@@ -570,17 +594,24 @@ class Darser {
 		formatIndent(ltw, indent + 1, ");");
 	}
 
-	static void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail) {
+	void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail) {
 		formatIndent(ltw, indent, "auto app = appender!string();\n");
 		formatIndent(ltw, indent, "formattedWrite(app, \n");
 		formatIndent(ltw, indent + 1, "\"Was expecting an");
 		foreach(htx, ht; fail) {
+			string msg = ht.value.name;
+			if(msg in this.expandedFirstSet) {
+				msg = "[" ~ this.expandedFirstSet[msg]
+					.map!(a => a.toFollowError())
+					.joiner(", ")
+					.to!string() ~ "]";
+			}
 			if(htx == 0) {
-				formattedWrite(ltw, " %s", ht.value.name);
+				formattedWrite(ltw, " %s", msg);
 			} else if(htx + 1 == fail.length) {
-				formattedWrite(ltw, ", or %s", ht.value.name);
+				formattedWrite(ltw, ", or %s", msg);
 			} else {
-				formattedWrite(ltw, ", %s", ht.value.name);
+				formattedWrite(ltw, ", %s", msg);
 			}
 		}
 		formattedWrite(ltw, ". Found a '%%s' at %%s:%%s.\", \n");
