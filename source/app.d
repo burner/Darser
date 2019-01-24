@@ -68,9 +68,9 @@ struct FirstRulePath {
 
 	string toFollowError() {
 		if(this.getFirst() != this.getLast()) {
-			return format("%s -> %s", this.getLast(), this.getFirst());
+			return format("\"%s -> %s\"", this.getLast(), this.getFirst());
 		} else {
-			return format("%s", this.getFirst());
+			return format("\"%s\"", this.getFirst());
 		}
 	}
 }
@@ -470,6 +470,9 @@ class Darser {
 		if(idx > 0) {
 			formattedWrite(ltw, " else ");
 		} else {
+			formatIndent(ltw, indent, "subRules = [%(%s, %)];\n",
+				t.subRuleNames
+			);
 			genIndent(ltw, indent);
 		}
 
@@ -480,11 +483,6 @@ class Darser {
 				"if(this.lex.front.type == TokenType.%s) {\n",
 				t.value.name
 			);
-			if(t.subRule) {
-				formatIndent(ltw, indent + 1, "// SubRule.name %s\n",
-					t.subRule.name
-				);
-			}
 			if(t.value.storeThis) {
 				formatIndent(ltw, indent + 1, "Token %s = this.lex.front;\n",
 					t.value.storeName
@@ -493,11 +491,6 @@ class Darser {
 			formatIndent(ltw, indent + 1, "this.lex.popFront();\n");
 		} else {
 			formattedWrite(ltw, "if(this.first%s()) {\n", t.value.name);
-			if(t.subRule) {
-				formatIndent(ltw, indent + 1, "// SubRule.name %s\n",
-					t.subRule.name
-				);
-			}
 			genIndent(ltw, indent + 1);
 			if(t.value.storeThis) {
 				formattedWrite(ltw, "%1$s %2$s = this.parse%1$s();\n",
@@ -596,29 +589,28 @@ class Darser {
 
 	void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail) {
 		formatIndent(ltw, indent, "auto app = appender!string();\n");
+		formatIndent(ltw, indent, "// fail size %d\n", fail.length);
 		formatIndent(ltw, indent, "formattedWrite(app, \n");
-		formatIndent(ltw, indent + 1, "\"Was expecting an");
+		string[] follows;
 		foreach(htx, ht; fail) {
 			string msg = ht.value.name;
 			if(msg in this.expandedFirstSet) {
-				msg = "[" ~ this.expandedFirstSet[msg]
+				follows ~= this.expandedFirstSet[msg]
 					.map!(a => a.toFollowError())
-					.joiner(", ")
-					.to!string() ~ "]";
-			}
-			if(htx == 0) {
-				formattedWrite(ltw, " %s", msg);
-			} else if(htx + 1 == fail.length) {
-				formattedWrite(ltw, ", or %s", msg);
+					.array;
 			} else {
-				formattedWrite(ltw, ", %s", msg);
+				follows ~= "\"" ~ msg ~ "\"";
 			}
 		}
-		formattedWrite(ltw, ". Found a '%%s' at %%s:%%s.\", \n");
-		formatIndent(ltw, indent + 1, "this.lex.front, this.lex.line, this.lex.column\n");
+		formatIndent(ltw, indent + 1, "\"Found a '%%s' while looking for\", \n");
+		formatIndent(ltw, indent + 1, "this.lex.front\n");
 		formatIndent(ltw, indent, ");\n");
 		formatIndent(ltw, indent, "throw new ParseException(app.data,\n");
-		formatIndent(ltw, indent + 1, "__FILE__, __LINE__\n");
+		formatIndent(ltw, indent + 1, "__FILE__, __LINE__,\n");
+		formatIndent(ltw, indent + 1, "subRules,\n");
+		formatIndent(ltw, indent + 1, "[%s]\n",
+			follows.joiner(",").to!string()
+		);
 		formatIndent(ltw, indent, ");\n");
 	}
 
@@ -672,6 +664,7 @@ class Darser {
 		formatIndent(ltw, 1, "}\n\n");
 
 		formatIndent(ltw, 1, "%1$s parse%1$sImpl() {\n", rule.name);
+		formatIndent(ltw, 2, "string[] subRules;\n");
 		//formatIndent(ltw, 2, "%1$s ret = refCounted!%1$s(%1$s());\n", rule.name);
 		foreach(i, it; t) {
 			genParse(ltw, rule.name, i, t.length, it, 2, t);
@@ -709,8 +702,40 @@ class Darser {
 	}
 
 	static void genParseException(File.LockingTextWriter ltw) {
-		formatIndent(ltw, 0, "module %sexception;\n\n",
-				options.getExceptionModule());
+		string t = `module %sexception;
+
+class ParseException : Exception {
+	int line;
+	string[] subRules;
+	string[] follows;
+
+	this(string msg) {
+		super(msg);
+	}
+
+	this(string msg, string f, int l, string[] subRules, string[] follows) {
+		import std.format : format;
+		super(format(
+			"%%s [%%(%%s,%%)]: While in subRules [%%(%%s, %%)]",
+			msg, follows, subRules), f, l
+		);
+		this.line = l;
+		this.subRules = subRules;
+		this.follows = follows;
+	}
+
+	this(string msg, ParseException other) {
+		super(msg, other);
+	}
+
+	this(string msg, ParseException other, string f, int l) {
+		super(msg, f, l, other);
+		this.line = l;
+	}
+}
+`;
+		formattedWrite(ltw, t, options.getExceptionModule());
+		/*formatIndent(ltw, 0, "module %sexception;\n\n",
 
 		formatIndent(ltw, 0, "class ParseException : Exception {\n");
 		formatIndent(ltw, 1, "int line;\n");
@@ -737,7 +762,7 @@ class Darser {
 		formatIndent(ltw, 2, "return format(\"%%s at %%d:\", super.msg, "
 			~ "this.line);\n");
 		formatIndent(ltw, 1, "}\n");
-		formatIndent(ltw, 0, "}\n");
+		formatIndent(ltw, 0, "}\n");*/
 	}
 }
 

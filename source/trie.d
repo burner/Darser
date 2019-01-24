@@ -94,7 +94,7 @@ void ruleToTrieRecur(Trie cur, SubRule sr, RulePart[] rp, string ruleName) {
 		cur.follow ~= con;
 	}
 
-	con.subRuleNames ~= ruleName;
+	con.subRuleNames ~= sr.name;
 	con.subRuleNames = con.subRuleNames.sort.uniq.array;
 
 	if(rp.length > 1) {
