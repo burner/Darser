@@ -369,17 +369,17 @@ class Darser {
 	static void genVis(bool cns)(File.LockingTextWriter ltw, Rule rule) {
 		formatIndent(ltw, 0, "\n");
 		if(cns) {
-			formatIndent(ltw, 1, "void enter%1$s(const(%1$s) obj) {}\n",
+			formatIndent(ltw, 1, "void enter(const(%1$s) obj) {}\n",
 				rule.name
 			);
-			formatIndent(ltw, 1, "void exit%1$s(const(%1$s) obj) {}\n",
+			formatIndent(ltw, 1, "void exit(const(%1$s) obj) {}\n",
 				rule.name
 			);
 		} else {
-			formatIndent(ltw, 1, "void enter%1$s(%1$s obj) {}\n",
+			formatIndent(ltw, 1, "void enter(%1$s obj) {}\n",
 				rule.name
 			);
-			formatIndent(ltw, 1, "void exit%1$s(%1$s obj) {}\n",
+			formatIndent(ltw, 1, "void exit(%1$s obj) {}\n",
 				rule.name
 			);
 		}
