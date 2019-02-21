@@ -394,7 +394,7 @@ class Darser {
 				rule.name
 			);
 		}
-		formatIndent(ltw, 2, "enter%s(obj);\n", rule.name);
+		formatIndent(ltw, 2, "enter(obj);\n");
 
 		formatIndent(ltw, 2, "final switch(obj.ruleSelection) {\n");
 		foreach(subRule; rule.subRules) {
@@ -411,7 +411,7 @@ class Darser {
 			formatIndent(ltw, 4, "break;\n");
 		}
 		formatIndent(ltw, 2, "}\n");
-		formatIndent(ltw, 2, "enter%s(obj);\n", rule.name);
+		formatIndent(ltw, 2, "exit(obj);\n");
 		formatIndent(ltw, 1, "}\n");
 	}
 
