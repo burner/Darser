@@ -152,6 +152,9 @@ class Darser {
 				options.getTokenModule());
 		formatIndent(ltw, 0, "import %svisitor;\n\n",
 				options.getVisitorModule());
+		if(options.safe) {
+			formatIndent(ltw, 0, "@safe:\n\n");
+		}
 		if(!customParseFilename.empty) {
 			formatIndent(ltw, 0, readText(customParseFilename));
 		}
@@ -436,6 +439,9 @@ class Darser {
 		formatIndent(ltw, 0, "import %sast;\n", options.getAstModule());
 		formatIndent(ltw, 0, "import %stokenmodule;\n\n",
 				options.getTokenModule());
+		if(options.safe) {
+			formatIndent(ltw, 0, "@safe:\n\n");
+		}
 		formatIndent(ltw, 0, "class Visitor {\n");
 
 		if(!customAstFilename.empty) {
@@ -458,6 +464,9 @@ class Darser {
 		formatIndent(ltw, 0, "import %svisitor;\n", options.getVisitorModule());
 		formatIndent(ltw, 0, "import %stokenmodule;\n\n",
 				options.getTokenModule());
+		if(options.safe) {
+			formatIndent(ltw, 0, "@safe:\n\n");
+		}
 		formatIndent(ltw, 0, "class TreeVisitor : Visitor {\n");
 		formatIndent(ltw, 1, "import std.stdio : write, writeln;\n\n");
 		formatIndent(ltw, 1, "alias accept = Visitor.accept;\n\n");
@@ -705,6 +714,10 @@ class Darser {
 		formatIndent(ltw, 0, "import %sexception;\n\n",
 				options.getExceptionModule());
 
+		if(options.safe) {
+			formatIndent(ltw, 0, "@safe:\n\n");
+		}
+
 		formatIndent(ltw, 0, "struct Parser {\n");
 		formatIndent(ltw, 1, "import std.array : appender;\n\n");
 		formatIndent(ltw, 1, "import std.format : formattedWrite;\n\n");
@@ -720,8 +733,14 @@ class Darser {
 	}
 
 	static void genParseException(File.LockingTextWriter ltw) {
-		string t = `module %sexception;
+		string t = "module %sexception;\n\n";
+		formattedWrite(ltw, t, options.getExceptionModule());
 
+		if(options.safe) {
+			formatIndent(ltw, 0, "@safe:\n\n");
+		}
+		formattedWrite(ltw,
+`
 class ParseException : Exception {
 	int line;
 	string[] subRules;
@@ -751,8 +770,7 @@ class ParseException : Exception {
 		this.line = l;
 	}
 }
-`;
-		formattedWrite(ltw, t, options.getExceptionModule());
+`);
 	}
 }
 
@@ -775,6 +793,7 @@ struct Options {
 	string customAstFile;
 	string customVisFile;
 	string[] expendedFirst;
+	bool safe;
 
 	string getParserModule() {
 		if(this.parserModule.empty) {
@@ -886,7 +905,9 @@ void getOptions(string[] args) {
 			"customVis", "Filename of custom Vistor member functions",
 				&options.customVisFile,
 			"f|first", "Pass name of rule to get the first set",
-				&options.expendedFirst
+				&options.expendedFirst,
+			"z|safe", "Mark all generated files as @safe",
+				&options.safe
 		);
 
 	if(rslt.helpWanted) {
