@@ -22,6 +22,86 @@ PrimaryExpression:
     Parenthesis: [lparen, Expression#expr, rparen]
 ```
 
+The parser for PrimaryExpression looks like this:
+```D
+PrimaryExpression parsePrimaryExpressionImpl() {
+	string[] subRules;
+	subRules = ["Identifier"];
+	if(this.lex.front.type == TokenType.identifier) {
+		Token value = this.lex.front;
+		this.lex.popFront();
+
+		return new PrimaryExpression(PrimaryExpressionEnum.Identifier
+			, value
+		);
+	} else if(this.lex.front.type == TokenType.float64) {
+		Token value = this.lex.front;
+		this.lex.popFront();
+
+		return new PrimaryExpression(PrimaryExpressionEnum.Float
+			, value
+		);
+	} else if(this.lex.front.type == TokenType.integer) {
+		Token value = this.lex.front;
+		this.lex.popFront();
+
+		return new PrimaryExpression(PrimaryExpressionEnum.Integer
+			, value
+		);
+	} else if(this.lex.front.type == TokenType.lparen) {
+		this.lex.popFront();
+		subRules = ["Parenthesis"];
+		if(this.firstExpression()) {
+			Expression expr = this.parseExpression();
+			subRules = ["Parenthesis"];
+			if(this.lex.front.type == TokenType.rparen) {
+				this.lex.popFront();
+
+				return new PrimaryExpression(PrimaryExpressionEnum.Parenthesis
+					, expr
+				);
+			}
+			auto app = appender!string();
+			formattedWrite(app,
+				"Found a '%s' while looking for",
+				this.lex.front
+			);
+			throw new ParseException(app.data,
+				__FILE__, __LINE__,
+				subRules,
+				["rparen"]
+			);
+
+		}
+		auto app = appender!string();
+		formattedWrite(app,
+			"Found a '%s' while looking for",
+			this.lex.front
+		);
+		throw new ParseException(app.data,
+			__FILE__, __LINE__,
+			subRules,
+			["float64 -> PostfixExpression",
+			 "identifier -> PostfixExpression",
+			 "integer -> PostfixExpression",
+			 "lparen -> PostfixExpression"]
+		);
+
+	}
+	auto app = appender!string();
+	formattedWrite(app,
+		"Found a '%s' while looking for",
+		this.lex.front
+	);
+	throw new ParseException(app.data,
+		__FILE__, __LINE__,
+		subRules,
+		["identifier","float64","integer","lparen"]
+	);
+
+}
+```
+
 Expression, PostfixExpression, and PrimaryExpression are rules.
 One level of indentation gives the subrules.
 All subrules for one rule must the representable by a trie.
