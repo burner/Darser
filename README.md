@@ -1,7 +1,7 @@
-# Darser: A LL(1)+ Parser/Ast Generator
+# Darser: A LL(1) to Recursive Decent Parser/AST/Visitor Generator
 
-Given a language BNF, as e.yaml, darser will generate a parser, a set of classes
-making up the AST, a visitor class and a AST printer class.
+Given a language BNF, as e.yaml, darser will generate a recursive decent parser,
+a set of classes making up the AST, a visitor class and a AST printer class.
 The parser, AST, and visitor can be extended by hand written extensions,
 see $ darser --help for more information.
 
