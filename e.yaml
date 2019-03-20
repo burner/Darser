@@ -1,19 +1,13 @@
-#Expression:
-#    Postfix: [PostfixExpression#post]
-#
-#PostfixExpression:
-#    Primary: [PrimaryExpression#prim]
-#    Array: [PrimaryExpression#prim, lbrack, Expression#expr, rbrack]
-#    Call: [PrimaryExpression#prim, lparen, Expression#expr, rparen]
+Expression:
+    Postfix: [PostfixExpression#post]
 
-#PrimaryExpression:
-#    Identifier: [ identifier#value ]
-#    Float: [ float64#value ]
-#    Integer: [ integer#value ]
-#    Parenthesis: [lparen, Expression#expr, rparen]
+PostfixExpression:
+    Primary: [PrimaryExpression#prim]
+    Array: [PrimaryExpression#prim, lbrack, Expression#expr, rbrack]
+    Call: [PrimaryExpression#prim, lparen, Expression#expr, rparen]
 
-List:
-    L: [ lparen#lp, PrimaryExpression#pe, rparen]
-    F: [ Foo#foo ]
-
-Foo: extern
+PrimaryExpression:
+    Identifier: [ identifier#value ]
+    Float: [ float64#value ]
+    Integer: [ integer#value ]
+    Parenthesis: [lparen, Expression#expr, rparen]
