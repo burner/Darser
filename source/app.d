@@ -246,6 +246,14 @@ class Darser {
 	void visit(Visitor vis) const {
 		vis.accept(this);
 	}
+
+	void visit(ConstVisitor vis) {
+		vis.accept(this);
+	}
+
+	void visit(ConstVisitor vis) const {
+		vis.accept(this);
+	}
 `
 			);
 
@@ -442,18 +450,29 @@ class Darser {
 		if(options.safe) {
 			formatIndent(ltw, 0, "@safe:\n\n");
 		}
-		formatIndent(ltw, 0, "class Visitor {\n");
 
+		// Visitor
+		formatIndent(ltw, 0, "class Visitor : ConstVisitor {\n");
+		formatIndent(ltw, 1, "alias accept = ConstVisitor.accept;\n\n");
+		formatIndent(ltw, 1, "alias enter = ConstVisitor.enter;\n\n");
+		formatIndent(ltw, 1, "alias exit = ConstVisitor.exit;\n\n");
 		if(!customAstFilename.empty) {
 			formatIndent(ltw, 0, readText(customAstFilename));
 		}
-
 		foreach(rule; this.rules) {
 			genVis!false(ltw, rule);
+		}
+		formatIndent(ltw, 0, "}\n\n");
+
+		// Const Visitor
+		formatIndent(ltw, 0, "class ConstVisitor {\n");
+		if(!customAstFilename.empty) {
+			formatIndent(ltw, 0, readText(customAstFilename));
+		}
+		foreach(rule; this.rules) {
 			genVis!true(ltw, rule);
 		}
-
-		formatIndent(ltw, 0, "}\n");
+		formatIndent(ltw, 0, "}\n\n");
 	}
 
 	void genTreeVisitor(File.LockingTextWriter ltw) {
@@ -467,9 +486,9 @@ class Darser {
 		if(options.safe) {
 			formatIndent(ltw, 0, "@safe:\n\n");
 		}
-		formatIndent(ltw, 0, "class TreeVisitor : Visitor {\n");
+		formatIndent(ltw, 0, "class TreeVisitor : ConstVisitor {\n");
 		formatIndent(ltw, 1, "import std.stdio : write, writeln;\n\n");
-		formatIndent(ltw, 1, "alias accept = Visitor.accept;\n\n");
+		formatIndent(ltw, 1, "alias accept = ConstVisitor.accept;\n\n");
 		formatIndent(ltw, 1, "int depth;\n\n");
 		formatIndent(ltw, 1, `this(int d) {
 		this.depth = d;
