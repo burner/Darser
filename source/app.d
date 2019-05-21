@@ -258,9 +258,11 @@ class Darser {
 			);
 
 		}
+
+		formattedWrite(ltw, "class Node {}\n\n");
 		foreach(rule; this.rules) {
 			generateEnum(ltw, rule);
-			formattedWrite(ltw, "class %s {\n", rule.name);
+			formattedWrite(ltw, "class %s : Node {\n", rule.name);
 			formattedWrite(ltw, "\t%sEnum ruleSelection;\n", rule.name);
 			generateMembers(ltw, rule);
 			genereateCTors(ltw, rule);
