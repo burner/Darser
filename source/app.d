@@ -101,7 +101,9 @@ class Darser {
 			// Node.Pair has a .key and a .value
 			auto jt = it.as!(Node.Pair[])();
 			foreach(ref kt; jt) {
-				if(kt.value.isScalar() && kt.value.as!string() == "extern") {
+				if(kt.value.nodeID == NodeID.scalar
+						&& kt.value.as!string() == "extern")
+				{
 					this.externRules[kt.key.as!string()] =
 							new Rule(kt.key.as!string(), true);
 					continue;
