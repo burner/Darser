@@ -131,6 +131,8 @@ class Darser {
 		if(isLowerStr(name)) {
 			return [name];
 		} else {
+			enforce(name in expandedFirstSet, format("%s not in [%s]", name,
+					expandedFirstSet.keys));
 			return expandedFirstSet[name].map!(a => a.getLast()).array;
 		}
 	}
