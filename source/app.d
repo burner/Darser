@@ -128,7 +128,7 @@ class Darser {
 	}
 
 	string[] getExpandedFirstSet(string name) {
-		if(isLowerStr(name)) {
+		if(name !is null && isLowerStr(name)) {
 			return [name];
 		} else {
 			enforce(name in expandedFirstSet, format("%s not in [%s]", name,
