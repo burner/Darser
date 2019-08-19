@@ -349,7 +349,8 @@ class Darser {
 		FirstRulePath[] toProcess = new FirstRulePath[0];
 		addSubRuleFirst(rule, toProcess);
 
-		FirstRulePath[] ret = new FirstRulePath[0];
+		//FirstRulePath[] ret = new FirstRulePath[0];
+		FirstRulePath[string] ret;
 		while(!toProcess.empty) {
 			FirstRulePath t = toProcess.back;
 			//writefln("%s toProcess %s",
@@ -358,8 +359,10 @@ class Darser {
 			toProcess.popBack();
 
 			if(isLowerStr(t.getLast())) {
-				if(!canFind(ret, t)) {
-					ret ~= t;
+				if(t.getLast() !in ret) {
+					ret[t.getLast()] = t;
+				//if(!canFind(ret, t)) {
+					//ret ~= t;
 				}
 				continue;
 			}
@@ -367,7 +370,7 @@ class Darser {
 			Rule r = this.getRule(t.getLast());
 			addSubRuleFirst(r, toProcess, t.path);
 		}
-		return ret;
+		return ret.values;
 	}
 
 	void genFirstSet() {
