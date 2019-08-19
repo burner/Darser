@@ -1,6 +1,7 @@
 import std.stdio;
 import std.exception : enforce;
 import std.format;
+import std.algorithm.searching : canFind, find;
 import std.algorithm.iteration : joiner;
 import std.conv : to;
 import std.array : back, front, empty, popFront, popBack;
@@ -309,10 +310,11 @@ class Darser {
 
 	void buildTerminalFirstSets() {
 		import std.algorithm.sorting : sort;
+
 		foreach(rule; this.rules) {
-			this.expandedFirstSet[rule.name] =
-				this.buildTerminalFirstSet(rule);
-			this.expandedFirstSet[rule.name].sort();
+			auto t = this.buildTerminalFirstSet(rule);
+			t.sort();
+			this.expandedFirstSet[rule.name] = t;
 		}
 
 		foreach(erule; this.externRules) {
@@ -340,12 +342,13 @@ class Darser {
 			FirstRulePath tmp;
 			tmp.path ~= old;
 			tmp.add(subRule.elements[0].name);
-			toProcess ~= tmp;
+			if(!canFind(toProcess, tmp)) {
+				toProcess ~= tmp;
+			}
 		}
 	}
 
 	FirstRulePath[] buildTerminalFirstSet(Rule rule) {
-		import std.algorithm.searching : canFind, find;
 		FirstRulePath[] toProcess = new FirstRulePath[0];
 		addSubRuleFirst(rule, toProcess);
 
