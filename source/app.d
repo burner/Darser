@@ -591,7 +591,7 @@ class Darser {
 		}
 		if(t.ruleName.empty) {
 			formattedWrite(ltw, "\n");
-			genThrow(ltw, indent + 1, t.follow);
+			genThrow(ltw, indent + 1, t.follow, ruleName);
 		}
 		formattedWrite(ltw, "\n");
 		formatIndent(ltw, indent, "}");
@@ -646,7 +646,9 @@ class Darser {
 		formatIndent(ltw, indent + 1, ");");
 	}
 
-	void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail) {
+	void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail,
+			string ruleName)
+	{
 		formatIndent(ltw, indent, "auto app = appender!string();\n");
 		formatIndent(ltw, indent, "formattedWrite(app, \n");
 		string[] follows;
@@ -660,7 +662,8 @@ class Darser {
 				follows ~= "\"" ~ msg ~ "\"";
 			}
 		}
-		formatIndent(ltw, indent + 1, "\"Found a '%%s' while looking for\", \n");
+		formatIndent(ltw, indent + 1,
+				"\"In '%s' found a '%%s' while looking for\", \n", ruleName);
 		formatIndent(ltw, indent + 1, "this.lex.front\n");
 		formatIndent(ltw, indent, ");\n");
 		formatIndent(ltw, indent, "throw new ParseException(app.data,\n");
@@ -729,7 +732,7 @@ class Darser {
 		}
 
 		formattedWrite(ltw, "\n");
-		genThrow(ltw, 2, t);
+		genThrow(ltw, 2, t, rule.name);
 		formattedWrite(ltw, "\n");
 		formatIndent(ltw, 1, "}\n\n");
 	}
