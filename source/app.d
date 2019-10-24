@@ -157,8 +157,12 @@ class Darser {
 				options.getTokenModule());
 		formatIndent(ltw, 0, "import %svisitor;\n\n",
 				options.getVisitorModule());
-		if(options.safe) {
-			formatIndent(ltw, 0, "@safe:\n\n");
+		if(options.safe || options.pure_) {
+			string t =
+					(options.safe ? "@safe " : "")
+					~ (options.pure_ ? "pure" : "");
+			t = t.empty ? t : t ~ ":";
+			formatIndent(ltw, 0, "%s\n\n", t);
 		}
 		if(!customParseFilename.empty) {
 			formatIndent(ltw, 0, readText(customParseFilename));
@@ -268,6 +272,13 @@ class Darser {
 		foreach(rule; this.rules) {
 			generateEnum(ltw, rule);
 			formattedWrite(ltw, "class %s : Node {\n", rule.name);
+			if(options.safe || options.pure_) {
+				string t =
+						(options.safe ? "@safe " : "")
+						~ (options.pure_ ? "pure" : "");
+				t = t.empty ? t : t ~ ":";
+				formatIndent(ltw, 0, "%s\n\n", t);
+			}
 			formattedWrite(ltw, "\t%sEnum ruleSelection;\n", rule.name);
 			generateMembers(ltw, rule);
 			genereateCTors(ltw, rule);
@@ -459,12 +470,16 @@ class Darser {
 		formatIndent(ltw, 0, "import %sast;\n", options.getAstModule());
 		formatIndent(ltw, 0, "import %stokenmodule;\n\n",
 				options.getTokenModule());
-		if(options.safe) {
-			formatIndent(ltw, 0, "@safe:\n\n");
-		}
 
 		// Visitor
 		formatIndent(ltw, 0, "class Visitor : ConstVisitor {\n");
+		if(options.safe || options.pure_) {
+			string t =
+					(options.safe ? "@safe " : "")
+					~ (options.pure_ ? "pure" : "");
+			t = t.empty ? t : t ~ ":";
+			formatIndent(ltw, 0, "%s\n\n", t);
+		}
 		formatIndent(ltw, 1, "alias accept = ConstVisitor.accept;\n\n");
 		formatIndent(ltw, 1, "alias enter = ConstVisitor.enter;\n\n");
 		formatIndent(ltw, 1, "alias exit = ConstVisitor.exit;\n\n");
@@ -478,6 +493,13 @@ class Darser {
 
 		// Const Visitor
 		formatIndent(ltw, 0, "class ConstVisitor {\n");
+		if(options.safe || options.pure_) {
+			string t =
+					(options.safe ? "@safe " : "")
+					~ (options.pure_ ? "pure" : "");
+			t = t.empty ? t : t ~ ":";
+			formatIndent(ltw, 0, "%s\n\n", t);
+		}
 		if(!customAstFilename.empty) {
 			formatIndent(ltw, 0, readText(customAstFilename));
 		}
@@ -495,10 +517,14 @@ class Darser {
 		formatIndent(ltw, 0, "import %svisitor;\n", options.getVisitorModule());
 		formatIndent(ltw, 0, "import %stokenmodule;\n\n",
 				options.getTokenModule());
-		if(options.safe) {
-			formatIndent(ltw, 0, "@safe:\n\n");
-		}
 		formatIndent(ltw, 0, "class TreeVisitor : ConstVisitor {\n");
+		if(options.safe || options.pure_) {
+			string t =
+					(options.safe ? "@safe " : "")
+					~ (options.pure_ ? "pure" : "");
+			t = t.empty ? t : t ~ ":";
+			formatIndent(ltw, 0, "%s\n\n", t);
+		}
 		formatIndent(ltw, 1, "import std.stdio : write, writeln;\n\n");
 		formatIndent(ltw, 1, "alias accept = ConstVisitor.accept;\n\n");
 		formatIndent(ltw, 1, "int depth;\n\n");
@@ -748,11 +774,14 @@ class Darser {
 		formatIndent(ltw, 0, "import %sexception;\n\n",
 				options.getExceptionModule());
 
-		if(options.safe) {
-			formatIndent(ltw, 0, "@safe:\n\n");
-		}
-
 		formatIndent(ltw, 0, "struct Parser {\n");
+		if(options.safe || options.pure_) {
+			string t =
+					(options.safe ? "@safe " : "")
+					~ (options.pure_ ? "pure" : "");
+			t = t.empty ? t : t ~ ":";
+			formatIndent(ltw, 0, "%s\n\n", t);
+		}
 		formatIndent(ltw, 1, "import std.array : appender;\n\n");
 		formatIndent(ltw, 1, "import std.format : formattedWrite;\n\n");
 		formatIndent(ltw, 1, "Lexer lex;\n\n");
@@ -770,12 +799,10 @@ class Darser {
 		string t = "module %sexception;\n\n";
 		formattedWrite(ltw, t, options.getExceptionModule());
 
-		if(options.safe) {
-			formatIndent(ltw, 0, "@safe:\n\n");
-		}
 		formattedWrite(ltw,
 `
 class ParseException : Exception {
+%s
 	int line;
 	string[] subRules;
 	string[] follows;
@@ -804,7 +831,12 @@ class ParseException : Exception {
 		this.line = l;
 	}
 }
-`);
+`, (options.safe && options.pure_)
+	? "@safe pure:\n"
+	: options.safe
+		? "@safe:\n"
+		: options.pure_ ? "pure:\n" : ""
+);
 	}
 }
 
@@ -828,6 +860,7 @@ struct Options {
 	string customVisFile;
 	string[] expendedFirst;
 	bool safe;
+	bool pure_;
 
 	string getParserModule() {
 		if(this.parserModule.empty) {
@@ -941,7 +974,9 @@ void getOptions(string[] args) {
 			"f|first", "Pass name of rule to get the first set",
 				&options.expendedFirst,
 			"z|safe", "Mark all generated files as @safe",
-				&options.safe
+				&options.safe,
+			"k|pure", "Mark all generated files as pure",
+				&options.pure_
 		);
 
 	if(rslt.helpWanted) {
