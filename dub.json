@@ -7,6 +7,6 @@
 	"copyright": "Copyright © 2016, burner",
 	"license": "LGPL3",
 	"dependencies": {
-		"dyaml": "~>0.8"
+		"dyaml": "~>0.9"
 	}
 }
