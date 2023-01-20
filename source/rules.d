@@ -5,6 +5,9 @@ import std.format : format;
 import std.array : back, front;
 import std.string : indexOf;
 import std.typecons : Flag;
+import std.exception : enforce;
+
+import helper;
 
 alias StoreRulePart = Flag!"StoreRulePart";
 
@@ -84,3 +87,15 @@ class Rule {
 	}
 }
 
+
+RulePart[string] unique(Rule rule) {
+	RulePart[string] ret;
+	foreach(it; rule.subRules) {
+		foreach(jt; it.elements) {
+			if(jt.storeThis == StoreRulePart.yes) {
+				ret[jt.storeName] = jt;
+			}
+		}
+	}
+	return ret;
+}
