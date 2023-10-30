@@ -1,4 +1,4 @@
-module helper;
+module darser.helper;
 
 import std.array : empty;
 import std.exception : enforce;

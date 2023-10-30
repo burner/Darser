@@ -1,4 +1,4 @@
-module clioptions;
+module darser.clioptions;
 
 import std.array : back, empty;
 

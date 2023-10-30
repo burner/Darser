@@ -1,6 +1,6 @@
-module trie;
+module darser.trie;
 
-import rules;
+import darser.rules;
 import std.array : front;
 
 import std.stdio;

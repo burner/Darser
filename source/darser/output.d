@@ -1,4 +1,4 @@
-module output;
+module darser.output;
 
 import std.algorithm.iteration : joiner, map;
 import std.algorithm.setops : setIntersection, setDifference;
@@ -10,11 +10,11 @@ import std.stdio;
 import std.file : readText;
 import std.uni : isLower, isUpper;
 
-import helper;
-import rules;
-import clioptions;
-import darser;
-import trie;
+import darser.helper;
+import darser.rules;
+import darser.clioptions;
+import darser.darserstructure;
+import darser.trie;
 
 abstract class Output {
 	Darser darser;
