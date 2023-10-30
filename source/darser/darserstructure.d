@@ -1,4 +1,4 @@
-module darser;
+module darser.darserstructure;
 
 import std.algorithm.comparison : cmp;
 import std.algorithm.sorting : sort;
@@ -14,10 +14,10 @@ import std.format;
 
 import dyaml;
 
-import helper;
-import trie;
-import rules;
-import clioptions;
+import darser.helper;
+import darser.trie;
+import darser.rules;
+import darser.clioptions;
 
 struct FirstRulePath {
 	string[] path;

@@ -1,4 +1,4 @@
-module rules;
+module darser.rules;
 
 import std.uni;
 import std.format : format;
@@ -7,7 +7,7 @@ import std.string : indexOf;
 import std.typecons : Flag;
 import std.exception : enforce;
 
-import helper;
+import darser.helper;
 
 alias StoreRulePart = Flag!"StoreRulePart";
 

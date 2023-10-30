@@ -1,3 +1,5 @@
+module darser.app;
+
 import std.array : appender, array, back, front, empty, popFront, popBack;
 import std.conv : to;
 import std.exception : enforce;
@@ -6,13 +8,13 @@ import std.format;
 import std.stdio;
 import std.uni : isLower, isUpper;
 
-import rules;
-import trie;
-import helper;
-import clioptions;
-import output;
-import helper;
-import darser;
+import darser.rules;
+import darser.trie;
+import darser.helper;
+import darser.clioptions;
+import darser.output;
+import darser.helper;
+import darser.darserstructure;
 
 void main(string[] args) {
 	getOptions(args);
