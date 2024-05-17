@@ -32,6 +32,114 @@ abstract class Output {
 			, string customAstFilename);
 }
 
+class DoDBasedOutout : Output {
+	this(Darser darser) {
+		super(darser);
+	}
+
+	void generateEnum(File.LockingTextWriter ltw, Rule rule) {
+		formattedWrite(ltw, "enum %sEnum {\n", rule.name);
+		foreach(subRule; rule.subRules) {
+			formattedWrite(ltw, "\t%s,\n", subRule.name);
+
+		}
+		formattedWrite(ltw, "}\n\n");
+	}
+
+	void generateMembers(File.LockingTextWriter ltw, Rule rule) {
+		RulePart[string] uni = unique(rule);
+		foreach(key, value; uni) {
+			if(!value.name.empty && isLowerStr(value.name)) {
+				formattedWrite(ltw, "\tuint %sTokenIdx;\n", key);
+			} else {
+				formattedWrite(ltw, "\tuint %sIdx;\n", value.name, key);
+			}
+		}
+		formattedWrite(ltw, "\n");
+	}
+
+	override void generateClasses(File.LockingTextWriter ltw
+			, string customParseFilename)
+	{
+		formatIndent(ltw, 0, "module %sast;\n\n", options.getAstModule());
+		formatIndent(ltw, 0, "import %stokenmodule;\n\n",
+				options.getTokenModule());
+		formatIndent(ltw, 0, "import %svisitor;\n\n",
+				options.getVisitorModule());
+		if(options.safe || options.pure_) {
+			string t =
+					(options.safe ? "@safe " : "")
+					~ (options.pure_ ? "pure" : "");
+			t = t.empty ? t : t ~ ":";
+			formatIndent(ltw, 0, "%s\n\n", t);
+		}
+
+		foreach(rule; this.darser.rules) {
+			generateEnum(ltw, rule);
+			formattedWrite(ltw, "struct %s {\n", rule.name);
+			if(options.safe || options.pure_) {
+				string t =
+						(options.safe ? "@safe " : "")
+						~ (options.pure_ ? "pure" : "");
+				t = t.empty ? t : t ~ ":";
+				formatIndent(ltw, 0, "%s\n\n", t);
+			}
+			generateMembers(ltw, rule);
+			//genereateCTors(ltw, rule);
+			//generateVisitor(ltw, rule);
+			formattedWrite(ltw, "\t%sEnum ruleSelection;\n", rule.name);
+			formattedWrite(ltw, "}\n\n");
+			//formattedWrite(ltw, "alias %1$s = RefCounted!(%1$s);\n\n", rule.name);
+		}
+	}
+
+	override void genRules(File.LockingTextWriter ltw) {
+	}
+
+	override void genParseException(File.LockingTextWriter ltw) {
+	}
+
+	override void genParserClass(File.LockingTextWriter ltw
+			, string customParseAst)
+	{
+		formatIndent(ltw, 0, "module %sparser;\n\n", options.getParserModule());
+		formatIndent(ltw, 0, "import std.array : appender;\n");
+		formatIndent(ltw, 0, "import std.format : formattedWrite;\n");
+		formatIndent(ltw, 0, "import std.format : format;\n\n");
+		formatIndent(ltw, 0, "import %sast;\n", options.getAstModule());
+		formatIndent(ltw, 0, "import %stokenmodule;\n\n",
+				options.getTokenModule());
+		formatIndent(ltw, 0, "import %slexer;\n\n", options.getLexerModule());
+		formatIndent(ltw, 0, "import %sexception;\n\n",
+				options.getExceptionModule());
+
+		formatIndent(ltw, 0, "struct Parser {\n");
+		if(options.safe || options.pure_) {
+			string t =
+					(options.safe ? "@safe " : "")
+					~ (options.pure_ ? "pure" : "");
+			t = t.empty ? t : t ~ ":";
+			formatIndent(ltw, 0, "%s\n\n", t);
+		}
+		foreach(rule; this.darser.rules) {
+			formatIndent(ltw, 1, "%s[] %ss;\n", rule.name, rule.name.toLowerFirst());
+		}
+		formatIndent(ltw, 1, "Lexer lex;\n\n");
+		formatIndent(ltw, 1, "this(Lexer lex) {\n");
+		formatIndent(ltw, 2, "this.lex = lex;\n");
+		formatIndent(ltw, 1, "}\n\n");
+		formatIndent(ltw, 0, "}\n\n");
+	}
+
+	override void genTreeVisitor(File.LockingTextWriter ltw) {
+	}
+
+	override void genDefaultVisitor(File.LockingTextWriter ltw
+			, string customAstFilename)
+	{
+	}
+}
+
 class ClassBasedOutput : Output {
 	this(Darser darser) {
 		super(darser);

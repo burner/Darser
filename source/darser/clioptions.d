@@ -23,7 +23,7 @@ struct Options {
 	string[] expendedFirst;
 	bool safe;
 	bool pure_;
-	bool ddd;
+	bool dod;
 
 	string getParserModule() {
 		if(this.parserModule.empty) {
@@ -140,8 +140,8 @@ void getOptions(string[] args) {
 				&options.safe,
 			"k|pure", "Mark all generated files as pure",
 				&options.pure_,
-			"d|ddd", "Data driven design parser",
-				&options.ddd
+			"d|dod", "Data driven design parser",
+				&options.dod
 		);
 
 	if(rslt.helpWanted) {
