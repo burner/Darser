@@ -32,7 +32,7 @@ abstract class Output {
 			, string customAstFilename);
 }
 
-class DoDBasedOutout : Output {
+class DoDBasedOutout : ClassBasedOutput {
 	this(Darser darser) {
 		super(darser);
 	}
@@ -93,12 +93,6 @@ class DoDBasedOutout : Output {
 		}
 	}
 
-	override void genRules(File.LockingTextWriter ltw) {
-	}
-
-	override void genParseException(File.LockingTextWriter ltw) {
-	}
-
 	override void genParserClass(File.LockingTextWriter ltw
 			, string customParseAst)
 	{
@@ -128,15 +122,89 @@ class DoDBasedOutout : Output {
 		formatIndent(ltw, 1, "this(Lexer lex) {\n");
 		formatIndent(ltw, 2, "this.lex = lex;\n");
 		formatIndent(ltw, 1, "}\n\n");
+		this.genRules(ltw);
+		if(!customParseAst.empty) {
+			formattedWrite(ltw, readText(customParseAst));
+		}
+		formatIndent(ltw, 0, "}\n");
 		formatIndent(ltw, 0, "}\n\n");
 	}
 
-	override void genTreeVisitor(File.LockingTextWriter ltw) {
-	}
-
-	override void genDefaultVisitor(File.LockingTextWriter ltw
-			, string customAstFilename)
+	override void genParse(File.LockingTextWriter ltw, const(string) ruleName,
+			const(size_t) idx, const(size_t) off, Trie t, int indent,
+			Trie[] fail)
 	{
+		//writefln("genParse %s %s", t.value.name, t.follow.length);
+
+		if(idx > 0) {
+			formattedWrite(ltw, " else ");
+		} else {
+			formatIndent(ltw, indent, "subRules = [%(%s, %)];\n",
+				t.subRuleNames
+			);
+			genIndent(ltw, indent);
+		}
+
+		bool isRepeat = false;
+
+		if(isLowerStr(t.value.name)) {
+			formattedWrite(ltw,
+				"if(this.lex.front.type == TokenType.%s) {\n",
+				t.value.name
+			);
+			if(t.value.storeThis) {
+				formatIndent(ltw, indent + 1, "uint %s = this.lex.frontTokenIndex;\n",
+					t.value.storeName
+				);
+			}
+			formatIndent(ltw, indent + 1, "this.lex.popFront();\n");
+		} else {
+			formattedWrite(ltw, "if(this.first%s()) {\n", t.value.name);
+			genIndent(ltw, indent + 1);
+			if(t.value.storeThis) {
+				formattedWrite(ltw, "uint %2$s = this.parse%1$s();\n",
+						t.value.name, t.value.storeName
+				);
+			} else {
+				formattedWrite(ltw, "this.parse%s();\n", t.value.name);
+			}
+		}
+
+		// testing first first conflicts
+		for(size_t i = 0; i < t.follow.length; ++i) {
+			for(size_t j = i + 1; j < t.follow.length; ++j) {
+				string[] ifs = this.getExpandedFirstSet(
+										t.follow[i].value.name
+									);
+				string[] jfs = this.getExpandedFirstSet(
+										t.follow[j].value.name
+									);
+				//writefln("FF %s:\n%s\n%s", t.value.name, ifs, jfs);
+				enforce(setIntersection(ifs, jfs).empty, format(
+						"First first conflict in '%s'\nfollowing '%s' between "
+						~ "'%s[%(%s,%)]' and '%s[%(%s,%)]'", ruleName,
+						t.value.name, t.follow[i].value.name, ifs,
+						t.follow[j].value.name, jfs
+					)
+				);
+			}
+		}
+
+		foreach(i, it; t.follow) {
+			genParse(ltw, ruleName, i, t.follow.length, it, indent + 1, t.follow);
+		}
+
+		//if(t.follow.empty && !t.ruleName.empty) {
+		if(!t.ruleName.empty) {
+			formattedWrite(ltw, "\n");
+			genTrieCtor(ltw, t, indent);
+		}
+		if(t.ruleName.empty) {
+			formattedWrite(ltw, "\n");
+			genThrow(ltw, indent + 1, t.follow, ruleName);
+		}
+		formattedWrite(ltw, "\n");
+		formatIndent(ltw, indent, "}");
 	}
 }
 
@@ -522,8 +590,8 @@ class ParseException : Exception {
 		//	t.ruleName, t.subRuleName
 		//);
 		//formatIndent(ltw, indent + 1, "return ret;");
-		formatIndent(ltw, indent + 1, "return new %s(%1$sEnum.%2$s\n",
-				t.ruleName, t.subRuleName
+		formatIndent(ltw, indent + 1, "this.%3$s ~= %s(%1$sEnum.%2$s\n",
+				t.ruleName, t.subRuleName, t.ruleName.toLowerFirst()
 			);
 		assert(t.subRule !is null);
 		foreach(kt; t.subRule.elements) {
@@ -531,7 +599,8 @@ class ParseException : Exception {
 				formatIndent(ltw, indent + 2, ", %s\n", kt.storeName);
 			}
 		}
-		formatIndent(ltw, indent + 1, ");");
+		formatIndent(ltw, indent + 1, ");\n");
+		formatIndent(ltw, indent + 1, "return this.%1$s.length - 1;\n", t.ruleName);
 	}
 
 	void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail,
@@ -598,7 +667,7 @@ class ParseException : Exception {
 		}
 		//return;
 		//writeln("Rule Trie Done");
-		formatIndent(ltw, 1, "%1$s parse%1$s() {\n", rule.name);
+		formatIndent(ltw, 1, "uint parse%1$s() {\n", rule.name);
 		formatIndent(ltw, 2, "try {\n");
 		formatIndent(ltw, 3, "return this.parse%sImpl();\n", rule.name);
 		formatIndent(ltw, 2, "} catch(ParseException e) {\n");
@@ -612,7 +681,7 @@ class ParseException : Exception {
 		formatIndent(ltw, 2, "}\n");
 		formatIndent(ltw, 1, "}\n\n");
 
-		formatIndent(ltw, 1, "%1$s parse%1$sImpl() {\n", rule.name);
+		formatIndent(ltw, 1, "uint parse%1$sImpl() {\n", rule.name);
 		formatIndent(ltw, 2, "string[] subRules;\n");
 		//formatIndent(ltw, 2, "%1$s ret = refCounted!%1$s(%1$s());\n", rule.name);
 		foreach(i, it; t) {
