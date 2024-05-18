@@ -24,7 +24,9 @@ void main(string[] args) {
 	}
 
 	auto darser = new Darser(opts.inputFile);
-	Output output = new ClassBasedOutput(darser);
+	Output output = opts.dod
+		? new DoDBasedOutout(darser)
+		: new ClassBasedOutput(darser);
 
 	foreach(ff; options.expendedFirst) {
 		if(ff !in darser.expandedFirstSet) {
