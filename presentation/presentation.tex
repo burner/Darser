@@ -1,0 +1,218 @@
+\documentclass[aspectratio=169,notes]{beamer}
+\usepackage{lmodern}
+\usepackage{adjustbox}
+\usepackage[T1]{fontenc}
+\usepackage{textcomp}
+\usepackage{animate}
+\usepackage{underscore}
+\usepackage{pdfpc-commands}
+\usepackage{xmpmulti}
+\usepackage{multimedia}
+\usepackage{epstopdf}
+\usepackage{soul}
+\usepackage{bbding}
+\usepackage[absolute,overlay]{textpos}
+\usepackage[most]{tcolorbox}
+\usepackage{ctex}
+\usepackage{listings-rust}
+
+\definecolor{Title}{rgb}{0.94,0.52,0.08}
+\setbeamercolor{frametitle}{bg=Title,fg=black}
+
+% footnote without number
+\makeatletter
+\def\blfootnote{\xdef\@thefnmark{}\@footnotetext}
+\makeatother
+
+\usepackage{hyperref}
+\usepackage{scalerel}
+\def\thumbup{\scalerel*{\includegraphics{thumbup.png}}{O}}
+\usepackage{listings}
+\lstdefinelanguage{D}
+{
+  % list of keywords
+  morekeywords={ abstract, alias, align, asm, assert, auto, body, bool, break,
+	byte, case, cast, catch, cdouble, cent, cfloat, char, class, const,
+	continue, default, double, else, enum, export, extern, false, final, finally,
+	float, for, foreach, foreach_reverse, function, goto, idouble, if, ifloat,
+	immutable, import, in, inout, int, interface, invariant, ireal, is, lazy,
+	long, mixin, module, new, nothrow, null, out, override, package, pragma,
+	private, protected, public, pure, real, ref, return, scope, shared, short,
+	static, string, struct, super, switch, synchronized, template, this, throw,
+	true, try, typeid, typeof, ubyte, ucent, uint, ulong, union,
+	unittest, delegate, @safe, @property
+	ushort, version, void, wchar, while, with, __FILE__, __FILE_FULL_PATH__,
+	__MODULE__, __LINE__, __FUNCTION__, __PRETTY_FUNCTION__, __gshared,
+	__traits, __vector, __parameters
+  },
+  otherkeywords= { @property, @safe },
+  sensitive=false, % keywords are not case-sensitive
+  morecomment=[l]{//}, % l is for line comment
+  morecomment=[s]{/*}{*/}, % s is for start and end delimiter
+  morecomment=[s]{/+}{+/}, % s is for start and end delimiter
+  morestring=[b]{"}, % defines that strings are enclosed in double quotes
+  morestring=[b]{`} % defines that strings are enclosed in double quotes
+}
+\usepackage{color}
+\definecolor{eclipseBlue}{RGB}{42,0.0,255}
+\definecolor{eclipseGreen}{RGB}{63,127,95}
+\definecolor{eclipsePurple}{RGB}{127,0,85}
+
+% Set Language
+\lstset{
+  language={D},
+  basicstyle=\small\ttfamily, % Global Code Style
+  captionpos=b, % Position of the Caption (t for top, b for bottom)
+  extendedchars=true, % Allows 256 instead of 128 ASCII characters
+  tabsize=2, % number of spaces indented when discovering a tab
+  columns=fixed, % make all characters equal width
+  keepspaces=true, % does not ignore spaces to fit width, convert tabs to spaces
+  showstringspaces=false, % lets spaces in strings appear as real spaces
+  breaklines=true, % wrap lines if they don't fit
+  numbers=left, % show line numbers at the left
+  numberstyle=\tiny\ttfamily, % style of the line numbers
+  commentstyle=\color{eclipseGreen}, % style of comments
+  keywordstyle=\color{eclipsePurple}, % style of keywords
+  stringstyle=\color{eclipseBlue}, % style of strings
+}
+\definecolor{lightgray}{rgb}{.9,.9,.9}
+\definecolor{darkgray}{rgb}{.4,.4,.4}
+\definecolor{purple}{rgb}{0.65, 0.12, 0.82}
+\lstdefinelanguage{TypeScript}{
+	keywords={break, case, catch, continue, debugger, default, delete, do, else,
+		false, from, finally, for, function, if, in, instanceof, new, null, return, switch,
+		this, throw, true, try, typeof, var, void, while, with, interface,
+		class, export, boolean, throw, implements, import, this, const, let,
+		of, =>},
+	morecomment=[l]{//},
+	morecomment=[s]{/*}{*/},
+	morestring=[b]',
+	morestring=[b]",
+	ndkeywords={},
+	keywordstyle=\color{blue}\bfseries,
+	ndkeywordstyle=\color{darkgray}\bfseries,
+	identifierstyle=\color{black},
+	commentstyle=\color{purple}\ttfamily,
+	stringstyle=\color{red}\ttfamily,
+	sensitive=true
+}
+
+\colorlet{punct}{red!60!black}
+\definecolor{background}{HTML}{EEEEEE}
+\definecolor{delim}{RGB}{20,105,176}
+\colorlet{numb}{magenta!60!black}
+
+\lstdefinelanguage{GraphQL}{
+    basicstyle=\normalfont\ttfamily,
+    numbers=left,
+    stepnumber=1,
+    showstringspaces=false,
+    breaklines=true,
+	keywords={type, schema, mutation, subscription, __type, __schema, kind,
+		on, fragment, query},
+    literate=
+     *{0}{{{\color{numb}0}}}{1}
+      {1}{{{\color{numb}1}}}{1}
+      {2}{{{\color{numb}2}}}{1}
+      {3}{{{\color{numb}3}}}{1}
+      {4}{{{\color{numb}4}}}{1}
+      {5}{{{\color{numb}5}}}{1}
+      {6}{{{\color{numb}6}}}{1}
+      {7}{{{\color{numb}7}}}{1}
+      {8}{{{\color{numb}8}}}{1}
+      {9}{{{\color{numb}9}}}{1}
+      {:}{{{\color{punct}{:}}}}{1}
+      {,}{{{\color{punct}{,}}}}{1}
+      {\{}{{{\color{delim}{\{}}}}{1}
+      {\}}{{{\color{delim}{\}}}}}{1}
+      {[}{{{\color{delim}{[}}}}{1}
+      {]}{{{\color{delim}{]}}}}{1},
+}
+
+\lstdefinelanguage{json}{
+    basicstyle=\normalfont\ttfamily,
+    numbers=left,
+    stepnumber=1,
+    showstringspaces=false,
+    breaklines=true,
+    literate=
+     *{0}{{{\color{numb}0}}}{1}
+      {1}{{{\color{numb}1}}}{1}
+      {2}{{{\color{numb}2}}}{1}
+      {3}{{{\color{numb}3}}}{1}
+      {4}{{{\color{numb}4}}}{1}
+      {5}{{{\color{numb}5}}}{1}
+      {6}{{{\color{numb}6}}}{1}
+      {7}{{{\color{numb}7}}}{1}
+      {8}{{{\color{numb}8}}}{1}
+      {9}{{{\color{numb}9}}}{1}
+      {:}{{{\color{punct}{:}}}}{1}
+      {,}{{{\color{punct}{,}}}}{1}
+      {\{}{{{\color{delim}{\{}}}}{1}
+      {\}}{{{\color{delim}{\}}}}}{1}
+      {[}{{{\color{delim}{[}}}}{1}
+      {]}{{{\color{delim}{]}}}}{1},
+}
+\usepackage{tikz}
+\usetikzlibrary{shadows,calc}
+\usepackage{xkeyval}
+\usepackage{todonotes}
+\presetkeys{todonotes}{inline}{}
+\defbeamertemplate{description item}{align left}{\insertdescriptionitem\hfill}
+\usetheme{metropolis}					 % Use metropolis theme
+\usepackage[
+    backend=biber,
+	sorting=none,
+    url=true
+]{biblatex}
+\addbibresource{biblio.bib}
+\setbeamertemplate{bibliography item}{\insertbiblabel}
+
+\usefonttheme{professionalfonts}
+\usefonttheme{serif}
+\usepackage{fontspec}
+\setmainfont{Nimbus Sans}
+
+\title{Good Fun: Creating a Data-Oriented Parser/AST/Visitor Generator}
+\date{DConf 2024}
+\author{Dr.\,Robert Schadek}
+
+\begin{document}
+	\maketitle
+
+	\begin{frame}[fragile]{The Problem}
+		\begin{itemize}
+			\item I like to work on parser generators
+			\pause
+			\begin{itemize}
+				\item I do not need them
+				\item I do not like to use them for something useful
+			\end{itemize}
+			\item but they are really good fund
+		\end{itemize}
+	\end{frame}
+
+	\begin{frame}[fragile]{A bit of darser history}
+		darser is a parser generator that
+		\begin{itemize}
+			\item generates a recursive decent parser
+			\item generates AST classes for parser to use
+			\item generates visitor to traverse
+			\item is used in graphqld
+		\end{itemize}
+	\end{frame}
+
+	%\section{Hopefully, there are still some people in the room with me at this point}
+
+	%\begin{frame}[fragile]{Bound Checks / Exceptions}
+	%	\begin{columns}[T]
+	%	\begin{column}{0.49\textwidth}
+	%	\lstinputlisting[language=D,firstnumber=1,firstline=5,lastline=18,basicstyle=\scriptsize\ttfamily]{../source/boundchecks.d}
+	%	\end{column}
+	%	\begin{column}{0.49\textwidth}
+	%	\lstinputlisting[language=D,firstnumber=19,firstline=20,lastline=36,basicstyle=\scriptsize\ttfamily]{../source/boundchecks.d}
+	%	\end{column}
+	%	\end{columns}
+	%\end{frame}
+
+\end{document}
