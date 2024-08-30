@@ -180,7 +180,7 @@
 \begin{document}
 	\maketitle
 
-	\begin{frame}[fragile]{The Problem}
+	\begin{frame}[fragile]{Why}
 		\begin{itemize}
 			\item I like to work on parser generators
 			\pause
@@ -202,17 +202,24 @@
 		\end{itemize}
 	\end{frame}
 
-	%\section{Hopefully, there are still some people in the room with me at this point}
+	\begin{frame}[fragile]{Input}
+		\lstinputlisting[language=yaml,firstnumber=1,lastline=4,basicstyle=\scriptsize\ttfamily]{example.d}
+	\end{frame}
 
-	%\begin{frame}[fragile]{Bound Checks / Exceptions}
-	%	\begin{columns}[T]
-	%	\begin{column}{0.49\textwidth}
-	%	\lstinputlisting[language=D,firstnumber=1,firstline=5,lastline=18,basicstyle=\scriptsize\ttfamily]{../source/boundchecks.d}
-	%	\end{column}
-	%	\begin{column}{0.49\textwidth}
-	%	\lstinputlisting[language=D,firstnumber=19,firstline=20,lastline=36,basicstyle=\scriptsize\ttfamily]{../source/boundchecks.d}
-	%	\end{column}
-	%	\end{columns}
-	%\end{frame}
+	\begin{frame}[fragile]{AST 1/3}
+		\lstinputlisting[language=D,firstnumber=6,lastline=12,basicstyle=\scriptsize\ttfamily]{example.d}
+	\end{frame}
+
+	\begin{frame}[fragile]{AST 2/3}
+		\lstinputlisting[language=D,firstnumber=14,lastline=27,basicstyle=\scriptsize\ttfamily]{example.d}
+	\end{frame}
+
+	\begin{frame}[fragile]{AST 3/3}
+		\lstinputlisting[language=D,firstnumber=29,lastline=44,basicstyle=\scriptsize\ttfamily]{example.d}
+	\end{frame}
+
+	\begin{frame}[fragile]{Parser}
+		\lstinputlisting[language=D,firstnumber=46,lastline=65,basicstyle=\scriptsize\ttfamily]{example.d}
+	\end{frame}
 
 \end{document}
