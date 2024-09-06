@@ -37,8 +37,23 @@ class DoDBasedOutout : ClassBasedOutput {
 		super(darser);
 	}
 
+	private static string enumType(size_t length) pure {
+		if(length < ubyte.max) {
+			return "ubyte";
+		} else if(length < ushort.max) {
+			return "ushort";
+		} else if(length < uint.max) {
+			return "uint";
+		} else if(length < ulong.max) {
+			return "ulong";
+		}
+		enforce(false, "Not reachable");
+		assert(false);
+	}
+
 	void generateEnum(File.LockingTextWriter ltw, Rule rule) {
-		formattedWrite(ltw, "enum %sEnum {\n", rule.name);
+		formattedWrite(ltw, "enum %sEnum : %s {\n", rule.name
+				, enumType(rule.subRules.length));
 		foreach(subRule; rule.subRules) {
 			formattedWrite(ltw, "\t%s,\n", subRule.name);
 
