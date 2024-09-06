@@ -1,6 +1,6 @@
 module darser.output;
 
-import std.algorithm.iteration : joiner, map;
+import std.algorithm.iteration : filter, joiner, map;
 import std.algorithm.setops : setIntersection, setDifference;
 import std.array : array, empty;
 import std.conv : to;
@@ -65,9 +65,9 @@ class DoDBasedOutout : ClassBasedOutput {
 		RulePart[string] uni = unique(rule);
 		foreach(key, value; uni) {
 			if(!value.name.empty && isLowerStr(value.name)) {
-				formattedWrite(ltw, "\tuint %sTokenIdx;\n", key);
+				formattedWrite(ltw, "\tuint %sIdx;\n", key);
 			} else {
-				formattedWrite(ltw, "\tuint %sIdx;\n", value.name, key);
+				formattedWrite(ltw, "\tuint %sIdx;\n", key);
 			}
 		}
 		formattedWrite(ltw, "\n");
@@ -76,6 +76,37 @@ class DoDBasedOutout : ClassBasedOutput {
 	override void generateClasses(File.LockingTextWriter ltw
 			, string customParseFilename)
 	{
+		void genereateCTors(File.LockingTextWriter ltw, Rule rule) {
+			foreach(sr; rule.subRules) {
+				formatIndent(ltw, 0, "\tstatic %s Construct%s("
+						, rule.name, sr.name);
+
+				formatIndent(ltw, 0, "%--(%s, %)) {\n"
+					, sr.elements
+						.filter!(jt => jt.storeThis == StoreRulePart.yes)
+						.map!((jt) {
+							if(isLowerStr(jt.name)) { // Token
+								return format("uint %s", jt.storeName);
+							} else {
+								return format("uint %s", jt.storeName);
+							}
+						})
+					);
+				formatIndent(ltw, 2, "%s ret;\n", rule.name);
+				formatIndent(ltw, 2, "ret.ruleSelection = %sEnum.%s;\n", rule.name, sr.name);
+				formatIndent(ltw, 0, "%--(%s\n%)\n"
+					, sr.elements
+						.filter!(jt => jt.storeThis == StoreRulePart.yes)
+						.map!((jt) {
+							return format("\t\tret.%1$sIdx = %2$s;"
+									, jt.storeName, jt.storeName);
+						})
+					);
+				formatIndent(ltw, 2, "return ret;\n");
+				formatIndent(ltw, 1, "}\n\n");
+			}
+		}
+
 		formatIndent(ltw, 0, "module %sast;\n\n", options.getAstModule());
 		formatIndent(ltw, 0, "import %stokenmodule;\n\n",
 				options.getTokenModule());
@@ -100,9 +131,9 @@ class DoDBasedOutout : ClassBasedOutput {
 				formatIndent(ltw, 0, "%s\n\n", t);
 			}
 			generateMembers(ltw, rule);
-			//genereateCTors(ltw, rule);
 			//generateVisitor(ltw, rule);
-			formattedWrite(ltw, "\t%sEnum ruleSelection;\n", rule.name);
+			formattedWrite(ltw, "\t%sEnum ruleSelection;\n\n", rule.name);
+			genereateCTors(ltw, rule);
 			formattedWrite(ltw, "}\n\n");
 			//formattedWrite(ltw, "alias %1$s = RefCounted!(%1$s);\n\n", rule.name);
 		}
@@ -142,7 +173,6 @@ class DoDBasedOutout : ClassBasedOutput {
 			formattedWrite(ltw, readText(customParseAst));
 		}
 		formatIndent(ltw, 0, "}\n");
-		formatIndent(ltw, 0, "}\n\n");
 	}
 
 	override void genParse(File.LockingTextWriter ltw, const(string) ruleName,
@@ -220,6 +250,34 @@ class DoDBasedOutout : ClassBasedOutput {
 		}
 		formattedWrite(ltw, "\n");
 		formatIndent(ltw, indent, "}");
+	}
+
+
+	static void genTrieCtor(File.LockingTextWriter ltw, Trie t, int indent) {
+		//formatIndent(ltw, indent + 1, "ret.ruleSelection = %1$sEnum.%2$s;\n",
+		//	t.ruleName, t.subRuleName
+		//);
+		//formatIndent(ltw, indent + 1, "return ret;");
+		//formatIndent(ltw, indent + 1, "this.%3$ss ~= parse%2$s(%1$sEnum.%2$s\n",
+		//formatIndent(ltw, indent + 1, "this.%3$ss ~= %2$s(%1$sEnum.%2$s\n",
+		formatIndent(ltw, indent + 1, "this.%1$ss ~= %2$s.Construct%3$s("
+				, t.ruleName.toLowerFirst(), t.ruleName, t.subRuleName
+			);
+		assert(t.subRule !is null);
+		formattedWrite(ltw, "%s"
+			,t.subRule.elements
+				.filter!(kt => kt.storeThis)
+				.map!(kt => kt.storeName)
+				.joiner(", "));
+		//foreach(kt; t.subRule.elements) {
+		//	if(kt.storeThis) {
+		//		formatIndent(ltw, indent + 2, ", %s\n", kt.storeName);
+		//	}
+		//}
+		formattedWrite(ltw, ");\n");
+		formatIndent(ltw, indent + 1, "return cast(uint)(this.%1$ss.length - 1);\n"
+				, t.ruleName.toLowerFirst()
+			);
 	}
 }
 
@@ -605,9 +663,12 @@ class ParseException : Exception {
 		//	t.ruleName, t.subRuleName
 		//);
 		//formatIndent(ltw, indent + 1, "return ret;");
-		formatIndent(ltw, indent + 1, "this.%3$s ~= %s(%1$sEnum.%2$s\n",
+		formatIndent(ltw, indent + 1, "return new %s(%1$sEnum.%2$s\n",
 				t.ruleName, t.subRuleName, t.ruleName.toLowerFirst()
 			);
+		//formatIndent(ltw, indent + 1, "this.%3$ss ~= parse%2$s(%1$sEnum.%2$s\n",
+		//		t.ruleName, t.subRuleName, t.ruleName.toLowerFirst()
+		//	);
 		assert(t.subRule !is null);
 		foreach(kt; t.subRule.elements) {
 			if(kt.storeThis) {
@@ -615,7 +676,7 @@ class ParseException : Exception {
 			}
 		}
 		formatIndent(ltw, indent + 1, ");\n");
-		formatIndent(ltw, indent + 1, "return this.%1$s.length - 1;\n", t.ruleName);
+		//formatIndent(ltw, indent + 1, "return this.%1$s.length - 1;\n", t.ruleName);
 	}
 
 	void genThrow(File.LockingTextWriter ltw, int indent, Trie[] fail,
