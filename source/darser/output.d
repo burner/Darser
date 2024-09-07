@@ -65,7 +65,7 @@ class DoDBasedOutout : ClassBasedOutput {
 		RulePart[string] uni = unique(rule);
 		foreach(key, value; uni) {
 			if(!value.name.empty && isLowerStr(value.name)) {
-				formattedWrite(ltw, "\tuint %sIdx;\n", key);
+				formattedWrite(ltw, "\tToken %sIdx;\n", key);
 			} else {
 				formattedWrite(ltw, "\tuint %sIdx;\n", key);
 			}
@@ -86,7 +86,7 @@ class DoDBasedOutout : ClassBasedOutput {
 						.filter!(jt => jt.storeThis == StoreRulePart.yes)
 						.map!((jt) {
 							if(isLowerStr(jt.name)) { // Token
-								return format("uint %s", jt.storeName);
+								return format("Token %s", jt.storeName);
 							} else {
 								return format("uint %s", jt.storeName);
 							}
@@ -198,7 +198,7 @@ class DoDBasedOutout : ClassBasedOutput {
 				t.value.name
 			);
 			if(t.value.storeThis) {
-				formatIndent(ltw, indent + 1, "uint %s = this.lex.frontTokenIndex;\n",
+				formatIndent(ltw, indent + 1, "Token %s = this.lex.front;\n",
 					t.value.storeName
 				);
 			}
