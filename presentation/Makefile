@@ -4,3 +4,6 @@ all:
 	xelatex presentation.tex
 	xelatex presentation.tex
 
+quick:
+	xelatex presentation.tex
+
