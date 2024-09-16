@@ -273,4 +273,109 @@
 
 	\section{Data-oriented Design (DoD)}
 
+	\begin{frame}[fragile]{Data-oriented Design (DoD)}
+		\large
+		\centering Putting data that is accessed together in arrays, while
+			making sure that every bit counts!
+	\end{frame}
+
+	\begin{frame}[fragile]{Hardware}
+		\centering
+		\begin{tabular}{r r r}
+				& time & size \\ \hline
+		   INST & $\approx{}$ 0.25-10 cycles & 128B \\
+\pause
+			L1 & 3 cycles & 16KB - 128 KB \\
+			L2 & 10 cycles & 256KB - 1MB \\
+			L3 & 40 cycles & 2MB - 32MB \\
+		   RAM & 100 cycles & how much money do you have
+		\end{tabular}
+
+	\end{frame}
+
+	\begin{frame}[fragile]{Why use Arrays}
+		\begin{itemize}
+			\item L1 cache lines are loaded one line at a time
+			\item chances are good that after reading one array element you read the next
+			\item Pointers on 64bit system are wasteful
+			\pause
+			\item At least on current 64bit Linux you can only address $2^{48}$ bit.
+			\vspace{1cm}
+			\item If an \lstinline@uint@ index is not good enough, reconsider
+your decisions
+		\end{itemize}
+	\end{frame}
+
+	\begin{frame}[fragile]{What now}
+		\begin{itemize}
+			\item Its called Abstract Syntax Tree not Abstract Syntax Array
+			\pause
+			\vspace{1cm}
+			\item But what is an Tree with Nodes and Pointers then indices into the
+ultimate array that is main memory.
+			\pause
+			\vspace{1cm}
+			\item How hard can it be
+		\end{itemize}
+	\end{frame}
+
+	\begin{frame}[fragile]{AST Array}
+		\lstinputlisting[language=D,firstline=142,lastline=148,basicstyle=\scriptsize\ttfamily]{example.d}
+	\end{frame}
+
+	\begin{frame}[fragile]{Parser Array 1/3}
+		\lstinputlisting[language=D,firstline=150,lastline=165,basicstyle=\scriptsize\ttfamily]{example.d}
+	\end{frame}
+
+	\begin{frame}[fragile]{Parser Array 2/3}
+		\lstinputlisting[language=D,firstline=178,lastline=192,basicstyle=\scriptsize\ttfamily]{example.d}
+	\end{frame}
+
+	\begin{frame}[fragile]{Parser Array 3/3}
+		\lstinputlisting[language=D,firstline=192,lastline=201,basicstyle=\scriptsize\ttfamily]{example.d}
+	\end{frame}
+
+	\begin{frame}[fragile]{Visitor Array 1/3}
+		\lstinputlisting[language=D,firstline=203,lastline=218,basicstyle=\scriptsize\ttfamily]{example.d}
+	\end{frame}
+
+	\begin{frame}[fragile]{Results}
+		\centering
+		\begin{tabular}{l r r}
+			Measure & class based & struct based \\ \hline
+			Wall Clock & 8.6s & 7.1s \\
+			L1-dcache-loads & $15\_884\_421\_092$ & $10\_671\_708\_742$ \\
+			L1-dcache-load-misses & $258\_055\_781$ & $200\_917\_391$ \\
+			L1-misses-percentage & $1.62\%$ & $1.88\%$ \\
+			Maximum resident set size & $585\_984 KiB$ & $193\_668 KiB$
+		\end{tabular}
+	\end{frame}
+
+	\section{Structured Ranting}
+
+	\begin{frame}[fragile]{AST Re-Structuring}
+		\lstinputlisting[language=D,firstline=257,lastline=266,basicstyle=\scriptsize\ttfamily]{example.d}
+	\end{frame}
+
+	\begin{frame}[fragile]{AST Re-Structuring}
+		\lstinputlisting[language=D,firstline=268,lastline=279,basicstyle=\scriptsize\ttfamily]{example.d}
+	\end{frame}
+
+	\begin{frame}[fragile]{Reading/Writing AST on Disk}
+
+	\end{frame}
+
+	\begin{frame}[fragile]{Lexer and Tokens}
+		\begin{center}
+		\large
+		Lexers and Tokens are no fun
+		\end{center}
+	\end{frame}
+
+	\begin{frame}[fragile]{Lexer and Tokens}
+		\lstinputlisting[language=graphql,firstline=281,lastline=293,basicstyle=\scriptsize\ttfamily]{example.d}
+
+%\$activeAfter, \$includedInHeadcount, \$knownAsName, \$legalName, \$privateContact, activeAfter, Boolean, createPerson, DateTime, id, includedInHeadcount, knownAsName, KnownAsNameIn, legalName:, LegalNameIn, MutateCreatePerson, mutation, privateContact, PrivateContactIn
+		That graphql only contains 20 strings that need storing
+	\end{frame}
 \end{document}
