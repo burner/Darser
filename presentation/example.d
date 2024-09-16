@@ -309,11 +309,26 @@ struct Parser {
 			static if(isArray!(T)) {
 				ubyte[4] lenA;
 				file.rawRead(lenA[]);
-				uint len = cast(uint)(*(cast(uint*)lenA.ptr));
+				uint len = *(cast(uint*)lenA.ptr);
 				T[] arr = new T[len];
 				file.rawRead(arr);
 				__traits(getMember, this, mem) = arr;
 			}
 		}}
 	}
+}
+
+enum TokenType {
+	  undefined
+	, exclamation
+	, dollar
+	, lparen
+	...
+}
+
+struct Token {
+	string value;
+	uint line;
+	uint column;
+	TokenType type;
 }
