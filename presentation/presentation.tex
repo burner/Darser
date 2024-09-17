@@ -211,14 +211,18 @@
 
 	\begin{frame}[fragile]{Why}
 		\begin{itemize}
-			\item I like to work on parser generators
+			\item I like to writing parser generators
 			\pause
 			\begin{itemize}
 				\item I do not need them
 				\item I do not like to use them for something useful
 			\end{itemize}
-			\item but they are really good fund
+			\item but they are really good fun
 		\end{itemize}
+	\end{frame}
+
+	\begin{frame}[fragile]{Yacc}
+		\lstinputlisting[language=D,firstline=382,lastline=385,basicstyle=\ttfamily]{example.d}
 	\end{frame}
 
 	\begin{frame}[fragile]{A bit of Darser history}
@@ -348,10 +352,10 @@ ultimate array that is main memory.
 		\begin{tabular}{l r r}
 			Measure & class based & struct based \\ \hline
 			Wall Clock & 8.6s & 7.1s \\
-			L1-dcache-loads & $15\_884\_421\_092$ & $10\_671\_708\_742$ \\
-			L1-dcache-load-misses & $258\_055\_781$ & $200\_917\_391$ \\
-			L1-misses-percentage & $1.62\%$ & $1.88\%$ \\
-			Maximum resident set size & $585\_984 KiB$ & $193\_668 KiB$
+			L1-dcache-loads & 15\_884\_421\_092 & 10\_671\_708\_742 \\
+			L1-dcache-load-misses & 258\_055\_781 & 200\_917\_391 \\
+			L1-misses-percentage & 1.62\% & 1.88\% \\
+			Maximum resident set size & 585\_984 KiB & 193\_668 KiB
 		\end{tabular}
 	\end{frame}
 
@@ -419,6 +423,8 @@ ultimate array that is main memory.
 			\item Its not Algorithms and Data-Strukturess its Arrays
 			\item Think Database-Normalization more often
 			\item Looking into the past for inspiration
+			\vfill{}
+			\item \url{https://github.com/burner/Darser}
 		\end{itemize}
 	\end{frame}
 
