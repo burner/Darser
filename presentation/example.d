@@ -68,7 +68,7 @@ Definition parseDefinitionImpl() {
 	);
 }
 
-bool firstOperationType() const pure @nogc @safe {
+bool firstOperationType() const {
 	return this.lex.front.type == TokenType.query
 		 || this.lex.front.type == TokenType.mutation
 		 || this.lex.front.type == TokenType.subscription;
