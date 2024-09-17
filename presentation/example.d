@@ -275,7 +275,7 @@ struct OperationDefinition {
 	uint otIdx;
 	uint dIdx;
 	uint ssIdx;
-	uint name; // Token should also just a be an index
+	uint name;
 }
 
 mutation MutateCreatePerson($legalName: LegalNameIn!
