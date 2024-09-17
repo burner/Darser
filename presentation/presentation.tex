@@ -221,12 +221,12 @@
 		\end{itemize}
 	\end{frame}
 
-	\begin{frame}[fragile]{A bit of darser history}
-		darser is a parser generator that
+	\begin{frame}[fragile]{A bit of Darser history}
+		Darser is a parser generator that
 		\begin{itemize}
 			\item generates a recursive decent parser
 			\item generates AST classes for parser to use
-			\item generates visitor to traverse
+			\item generates visitor to traverse, simply inherit
 			\item is used in graphqld
 		\end{itemize}
 	\end{frame}
@@ -257,6 +257,10 @@
 
 	\begin{frame}[fragile]{Visitor}
 		\lstinputlisting[language=D,firstline=77,lastline=96,basicstyle=\scriptsize\ttfamily]{example.d}
+	\end{frame}
+
+	\begin{frame}[fragile]{Visitor Usage}
+		\lstinputlisting[language=D,firstline=375,lastline=380,basicstyle=\scriptsize\ttfamily]{example.d}
 	\end{frame}
 
 	\begin{frame}[fragile]{Input 2}
@@ -372,12 +376,16 @@ ultimate array that is main memory.
 	\begin{frame}[fragile]{Lexer and Tokens}
 		\begin{center}
 		\large
-		Lexers and Tokens are no fun \pause so much manual work
+		Lexers and Tokens are no fun ... so much manual work
 		\end{center}
 	\end{frame}
 
 	\begin{frame}[fragile]{TokenType}
 		\lstinputlisting[language=D,firstline=321,lastline=334,basicstyle=\scriptsize\ttfamily]{example.d}
+	\end{frame}
+
+	\begin{frame}[fragile]{TokenType}
+		\lstinputlisting[language=D,firstline=336,lastline=351,basicstyle=\scriptsize\ttfamily]{example.d}
 	\end{frame}
 
 	\begin{frame}[fragile]{Lexer and Tokens}
@@ -386,4 +394,33 @@ ultimate array that is main memory.
 %\$activeAfter, \$includedInHeadcount, \$knownAsName, \$legalName, \$privateContact, activeAfter, Boolean, createPerson, DateTime, id, includedInHeadcount, knownAsName, KnownAsNameIn, legalName:, LegalNameIn, MutateCreatePerson, mutation, privateContact, PrivateContactIn
 		That graphql only contains 20 strings that need storing
 	\end{frame}
+
+	\begin{frame}[fragile]{String/Array Intering}
+		\begin{columns}[t]
+			\begin{column}{0.65\textwidth}
+				\lstinputlisting[language=D,firstline=353,lastline=373,basicstyle=\scriptsize\ttfamily]{example.d}
+			\end{column}
+			\pause
+			\begin{column}{0.35\textwidth}
+				\begin{itemize}
+					\item Easy to read and write to file
+					\item Initial construction slow, reading, comparison really fast
+					\item \lstinline@const StringIntering@ makes \lstinline@const@ useful
+				\end{itemize}
+			\end{column}
+		\end{columns}
+	\end{frame}
+
+	\section{Coming to an End}
+	\begin{frame}[fragile]{Conclusion}
+		\begin{itemize}
+			\item Parser/AST/Visitor generation is fun
+			\item DoD is not new, look at any C program from 1990
+			\item Its not Algorithms and Data-Strukturess its Arrays
+			\item Think Database-Normalization more often
+			\item Looking into the past for inspiration
+		\end{itemize}
+	\end{frame}
+
+	\section{The End}
 \end{document}

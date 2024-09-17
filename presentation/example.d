@@ -332,3 +332,49 @@ struct Token {
 	uint column;
 	TokenType type;
 }
+
+struct Token {
+	TokenType type : 7;
+	uint valueOrIndex : 25;
+}
+
+struct TokenPos {
+	uint line;
+	uint column;
+}
+
+struct Lexer {
+	int[] ints;
+	float[] floats;
+	double[] doubles;
+	TokenPos[16] positions;
+}
+
+struct SmallStringPtr {
+	uint idx;
+	uint length;
+}
+struct StringIntering {
+	string str;
+	SmallStringPtr[] index;
+	uint[string] map;
+
+	uint insert(string s) {
+		uint* alreadyInMap = s in this.map;
+		if(alreadyInMap != null) return *alreadyInMap;
+		SmallStringPtr ptr;
+		ptr.index = cast(uint)this.str.length;
+		ptr.length = cast(uint)s.length;
+		this.str ~= s;
+		uint ret = cast(uint)this.index.length;
+		this.index ~= ptr;
+		return ret;
+	}
+}
+
+class CountVisitor : ConstVisitor {
+	void accept(Definition obj) {
+		super.accept(obj);
+		this.definitionCnt++;
+	}
+}
