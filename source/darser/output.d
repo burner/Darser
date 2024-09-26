@@ -1,6 +1,6 @@
 module darser.output;
 
-import std.algorithm.iteration : joiner, map;
+import std.algorithm.iteration : joiner, map, filter;
 import std.algorithm.setops : setIntersection, setDifference;
 import std.array : array, empty;
 import std.conv : to;
@@ -30,6 +30,466 @@ abstract class Output {
 	abstract void genTreeVisitor(File.LockingTextWriter ltw);
 	abstract void genDefaultVisitor(File.LockingTextWriter ltw
 			, string customAstFilename);
+}
+
+class DoDBasedOutout : ClassBasedOutput {
+	this(Darser darser) {
+		super(darser);
+	}
+
+	private static string enumType(size_t length) pure {
+		if(length < ubyte.max) {
+			return "ubyte";
+		} else if(length < ushort.max) {
+			return "ushort";
+		} else if(length < uint.max) {
+			return "uint";
+		} else if(length < ulong.max) {
+			return "ulong";
+		}
+		enforce(false, "Not reachable");
+		assert(false);
+	}
+
+	void generateEnum(File.LockingTextWriter ltw, Rule rule) {
+		formattedWrite(ltw, "enum %sEnum : %s {\n", rule.name
+				, enumType(rule.subRules.length));
+		foreach(subRule; rule.subRules) {
+			formattedWrite(ltw, "\t%s,\n", subRule.name);
+
+		}
+		formattedWrite(ltw, "}\n\n");
+	}
+
+	void generateMembers(File.LockingTextWriter ltw, Rule rule) {
+		RulePart[string] uni = unique(rule);
+		foreach(key, value; uni) {
+			if(!value.name.empty && isLowerStr(value.name)) {
+				formattedWrite(ltw, "\tToken %s;\n", key);
+			} else {
+				formattedWrite(ltw, "\tuint %sIdx;\n", key);
+			}
+		}
+		formattedWrite(ltw, "\n");
+	}
+
+	override void genRule(File.LockingTextWriter ltw, Rule rule) {
+		genFirst(ltw, rule);
+		auto t = ruleToTrie(rule);
+		//writeln("Rule Trie Start");
+		//foreach(it; t) {
+		//	writeln(it.toString());
+		//}
+		for(size_t i = 0; i < t.length; ++i) {
+			for(size_t j = i + 1; j < t.length; ++j) {
+				string[] ifs = this.getExpandedFirstSet(
+										t[i].value.name
+									);
+				string[] jfs = this.getExpandedFirstSet(
+										t[j].value.name
+									);
+				//writefln("FF %s:\n%s\n%s", rule.name, ifs, jfs);
+				// Same subrules with equal name we can handle
+				//if(t[i].value.name == t[j].value.name
+				//		|| (isLowerStr(t[i].value.name)
+				//			&& isLowerStr(t[j].value.name))
+				//) {
+				//	continue;
+				//}
+				auto s = setIntersection(ifs, jfs);
+				//writeln(s);
+				enforce(s.empty, format(
+						"\nFirst first conflict in '%s' between\n"
+						~ "'%s:\n\t%(%s\n\t%)'\nand \'%s:\n\t%(%s\n\t%)'\n%s",
+						rule.name, t[i].value.name, ifs, t[j].value.name, jfs,
+						s)
+				);
+			}
+		}
+		//return;
+		//writeln("Rule Trie Done");
+		formatIndent(ltw, 1, "uint parse%1$s() {\n", rule.name);
+		formatIndent(ltw, 2, "try {\n");
+		formatIndent(ltw, 3, "return this.parse%sImpl();\n", rule.name);
+		formatIndent(ltw, 2, "} catch(ParseException e) {\n");
+		formatIndent(ltw, 3,
+				"throw new ParseException(\n");
+		formatIndent(ltw, 4, "\"While parsing a %s an Exception "
+				~ "was thrown.\",\n", rule.name
+		);
+		formatIndent(ltw, 4, "e, __FILE__, __LINE__\n");
+		formatIndent(ltw, 3, ");\n");
+		formatIndent(ltw, 2, "}\n");
+		formatIndent(ltw, 1, "}\n\n");
+
+		formatIndent(ltw, 1, "uint parse%1$sImpl() {\n", rule.name);
+		formatIndent(ltw, 2, "string[] subRules;\n");
+		//formatIndent(ltw, 2, "%1$s ret = refCounted!%1$s(%1$s());\n", rule.name);
+		foreach(i, it; t) {
+			genParse(ltw, rule.name, i, t.length, it, 2, t);
+		}
+
+		formattedWrite(ltw, "\n");
+		genThrow(ltw, 2, t, rule.name);
+		formattedWrite(ltw, "\n");
+		formatIndent(ltw, 1, "}\n\n");
+	}
+
+	override void generateClasses(File.LockingTextWriter ltw
+			, string customParseFilename)
+	{
+		void genereateCTors(File.LockingTextWriter ltw, Rule rule) {
+			foreach(sr; rule.subRules) {
+				formatIndent(ltw, 0, "\tstatic %s Construct%s("
+						, rule.name, sr.name);
+
+				formatIndent(ltw, 0, "%--(%s, %)) {\n"
+					, sr.elements
+						.filter!(jt => jt.storeThis == StoreRulePart.yes)
+						.map!((jt) {
+							if(isLowerStr(jt.name)) { // Token
+								return format("Token %s", jt.storeName);
+							} else {
+								return format("uint %s", jt.storeName);
+							}
+						})
+					);
+				formatIndent(ltw, 2, "%s ret;\n", rule.name);
+				formatIndent(ltw, 2, "ret.ruleSelection = %sEnum.%s;\n", rule.name, sr.name);
+				formatIndent(ltw, 0, "%--(%s\n%)\n"
+					, sr.elements
+						.filter!(jt => jt.storeThis == StoreRulePart.yes)
+						.map!((jt) {
+							if(isLowerStr(jt.name)) {
+								return format("\t\tret.%1$s = %2$s;"
+										, jt.storeName, jt.storeName);
+							} else {
+								return format("\t\tret.%1$sIdx = %2$s;"
+										, jt.storeName, jt.storeName);
+							}
+						})
+					);
+				formatIndent(ltw, 2, "return ret;\n");
+				formatIndent(ltw, 1, "}\n\n");
+			}
+		}
+
+		formatIndent(ltw, 0, "module %sast;\n\n", options.getAstModule());
+		formatIndent(ltw, 0, "import %stokenmodule;\n\n",
+				options.getTokenModule());
+		formatIndent(ltw, 0, "import %svisitor;\n\n",
+				options.getVisitorModule());
+		if(options.safe || options.pure_) {
+			string t =
+					(options.safe ? "@safe " : "")
+					~ (options.pure_ ? "pure" : "");
+			t = t.empty ? t : t ~ ":";
+			formatIndent(ltw, 0, "%s\n\n", t);
+		}
+
+		foreach(rule; this.darser.rules) {
+			generateEnum(ltw, rule);
+			formattedWrite(ltw, "struct %s {\n", rule.name);
+			if(options.safe || options.pure_) {
+				string t =
+						(options.safe ? "@safe " : "")
+						~ (options.pure_ ? "pure" : "");
+				t = t.empty ? t : t ~ ":";
+				formatIndent(ltw, 0, "%s\n\n", t);
+			}
+			generateMembers(ltw, rule);
+			//generateVisitor(ltw, rule);
+			formattedWrite(ltw, "\t%sEnum ruleSelection;\n\n", rule.name);
+			genereateCTors(ltw, rule);
+			formattedWrite(ltw, "}\n\n");
+			//formattedWrite(ltw, "alias %1$s = RefCounted!(%1$s);\n\n", rule.name);
+		}
+	}
+
+	override void genParserClass(File.LockingTextWriter ltw
+			, string customParseAst)
+	{
+		formatIndent(ltw, 0, "module %sparser;\n\n", options.getParserModule());
+		formatIndent(ltw, 0, "import std.array : appender;\n");
+		formatIndent(ltw, 0, "import std.format : formattedWrite;\n");
+		formatIndent(ltw, 0, "import std.format : format;\n\n");
+		formatIndent(ltw, 0, "import %sast;\n", options.getAstModule());
+		formatIndent(ltw, 0, "import %stokenmodule;\n\n",
+				options.getTokenModule());
+		formatIndent(ltw, 0, "import %slexer;\n\n", options.getLexerModule());
+		formatIndent(ltw, 0, "import %sexception;\n\n",
+				options.getExceptionModule());
+
+		formatIndent(ltw, 0, "struct Parser {\n");
+		if(options.safe || options.pure_) {
+			string t =
+					(options.safe ? "@safe " : "")
+					~ (options.pure_ ? "pure" : "");
+			t = t.empty ? t : t ~ ":";
+			formatIndent(ltw, 0, "%s\n\n", t);
+		}
+		foreach(rule; this.darser.rules) {
+			formatIndent(ltw, 1, "%s[] %ss;\n", rule.name, rule.name.toLowerFirst());
+		}
+		formatIndent(ltw, 1, "Lexer lex;\n\n");
+		formatIndent(ltw, 1, "this(Lexer lex) {\n");
+		formatIndent(ltw, 2, "this.lex = lex;\n");
+		formatIndent(ltw, 1, "}\n\n");
+		this.genRules(ltw);
+		if(!customParseAst.empty) {
+			formattedWrite(ltw, readText(customParseAst));
+		}
+		formatIndent(ltw, 0, "}\n");
+	}
+
+	override void genParse(File.LockingTextWriter ltw, const(string) ruleName,
+			const(size_t) idx, const(size_t) off, Trie t, int indent,
+			Trie[] fail)
+	{
+		//writefln("genParse %s %s", t.value.name, t.follow.length);
+
+		if(idx > 0) {
+			formattedWrite(ltw, " else ");
+		} else {
+			//formatIndent(ltw, indent, "subRules = [%(%s, %)];\n",
+			//	t.subRuleNames
+			//);
+			genIndent(ltw, indent);
+		}
+
+		bool isRepeat = false;
+
+		if(isLowerStr(t.value.name)) {
+			formattedWrite(ltw,
+				"if(this.lex.front.type == TokenType.%s) {\n",
+				t.value.name
+			);
+			if(t.value.storeThis) {
+				formatIndent(ltw, indent + 1, "Token %s = this.lex.front;\n",
+					t.value.storeName
+				);
+			}
+			formatIndent(ltw, indent + 1, "this.lex.popFront();\n");
+		} else {
+			formattedWrite(ltw, "if(this.first%s()) {\n", t.value.name);
+			genIndent(ltw, indent + 1);
+			if(t.value.storeThis) {
+				formattedWrite(ltw, "uint %2$s = this.parse%1$s();\n",
+						t.value.name, t.value.storeName
+				);
+			} else {
+				formattedWrite(ltw, "this.parse%s();\n", t.value.name);
+			}
+		}
+
+		// testing first first conflicts
+		for(size_t i = 0; i < t.follow.length; ++i) {
+			for(size_t j = i + 1; j < t.follow.length; ++j) {
+				string[] ifs = this.getExpandedFirstSet(
+										t.follow[i].value.name
+									);
+				string[] jfs = this.getExpandedFirstSet(
+										t.follow[j].value.name
+									);
+				//writefln("FF %s:\n%s\n%s", t.value.name, ifs, jfs);
+				enforce(setIntersection(ifs, jfs).empty, format(
+						"First first conflict in '%s'\nfollowing '%s' between "
+						~ "'%s[%(%s,%)]' and '%s[%(%s,%)]'", ruleName,
+						t.value.name, t.follow[i].value.name, ifs,
+						t.follow[j].value.name, jfs
+					)
+				);
+			}
+		}
+
+		foreach(i, it; t.follow) {
+			genParse(ltw, ruleName, i, t.follow.length, it, indent + 1, t.follow);
+		}
+
+		//if(t.follow.empty && !t.ruleName.empty) {
+		if(!t.ruleName.empty) {
+			formattedWrite(ltw, "\n");
+			genTrieCtor(ltw, t, indent);
+		}
+		if(t.ruleName.empty) {
+			formattedWrite(ltw, "\n");
+			genThrow(ltw, indent + 1, t.follow, ruleName);
+		}
+		formattedWrite(ltw, "\n");
+		formatIndent(ltw, indent, "}");
+	}
+
+
+	static void genTrieCtor(File.LockingTextWriter ltw, Trie t, int indent) {
+		//formatIndent(ltw, indent + 1, "ret.ruleSelection = %1$sEnum.%2$s;\n",
+		//	t.ruleName, t.subRuleName
+		//);
+		//formatIndent(ltw, indent + 1, "return ret;");
+		//formatIndent(ltw, indent + 1, "this.%3$ss ~= parse%2$s(%1$sEnum.%2$s\n",
+		//formatIndent(ltw, indent + 1, "this.%3$ss ~= %2$s(%1$sEnum.%2$s\n",
+		formatIndent(ltw, indent + 1, "this.%1$ss ~= %2$s.Construct%3$s("
+				 , t.ruleName.toLowerFirst(), t.ruleName, t.subRuleName
+			);
+		assert(t.subRule !is null);
+		formattedWrite(ltw, "%s"
+			,t.subRule.elements
+				.filter!(kt => kt.storeThis)
+				.map!(kt => kt.storeName)
+				.joiner(", "));
+		//foreach(kt; t.subRule.elements) {
+		//	if(kt.storeThis) {
+		//		formatIndent(ltw, indent + 2, ", %s\n", kt.storeName);
+		//	}
+		//}
+		formattedWrite(ltw, ");\n");
+		formatIndent(ltw, indent + 1, "return cast(uint)(this.%1$ss.length - 1);\n"
+				, t.ruleName.toLowerFirst()
+			);
+	}
+
+	override void genDefaultVisitor(File.LockingTextWriter ltw, string customAstFilename)
+	{
+		formatIndent(ltw, 0, "module %svisitor;\n\n", options.getVisitorModule());
+		formatIndent(ltw, 0, "import %sast;\n", options.getAstModule());
+		formatIndent(ltw, 0, "import %sparser;\n", options.getParserModule());
+		formatIndent(ltw, 0, "import %stokenmodule;\n\n",
+				options.getTokenModule());
+
+		// Visitor
+		formatIndent(ltw, 0, "class Visitor {\n");
+		if(options.safe || options.pure_) {
+			string t =
+					(options.safe ? "@safe " : "")
+					~ (options.pure_ ? "pure" : "");
+			t = t.empty ? t : t ~ ":";
+			formatIndent(ltw, 0, "%s\n\n", t);
+		}
+		if(!customAstFilename.empty) {
+			formatIndent(ltw, 0, readText(customAstFilename));
+		}
+		formatIndent(ltw, 1, "Parser* parser;\n\n");
+		formatIndent(ltw, 1, "this(Parser* parser) {\n");
+		formatIndent(ltw, 2, "this.parser = parser;\n");
+		formatIndent(ltw, 1, "}\n\n");
+		foreach(rule; this.darser.rules) {
+			genVis!false(ltw, rule);
+		}
+		formatIndent(ltw, 0, "}\n\n");
+
+		// Const Visitor
+		formatIndent(ltw, 0, "class ConstVisitor {\n");
+		if(options.safe || options.pure_) {
+			string t =
+					(options.safe ? "@safe " : "")
+					~ (options.pure_ ? "pure" : "");
+			t = t.empty ? t : t ~ ":";
+			formatIndent(ltw, 0, "%s\n\n", t);
+		}
+		if(!customAstFilename.empty) {
+			formatIndent(ltw, 0, readText(customAstFilename));
+		}
+		formatIndent(ltw, 1, "Parser* parser;\n\n");
+		formatIndent(ltw, 1, "this(Parser* parser) {\n");
+		formatIndent(ltw, 2, "this.parser = parser;\n");
+		formatIndent(ltw, 1, "}\n\n");
+		foreach(rule; this.darser.rules) {
+			genVis!true(ltw, rule);
+		}
+		formatIndent(ltw, 0, "}\n\n");
+	}
+
+	static void genVis(bool cns)(File.LockingTextWriter ltw, Rule rule) {
+		formatIndent(ltw, 0, "\n");
+		if(cns) {
+			formatIndent(ltw, 1, "void enter(ref const(%1$s) obj) {}\n",
+				rule.name
+			);
+			formatIndent(ltw, 1, "void exit(ref const(%1$s) obj) {}\n",
+				rule.name
+			);
+		} else {
+			formatIndent(ltw, 1, "void enter(ref %1$s obj) {}\n",
+				rule.name
+			);
+			formatIndent(ltw, 1, "void exit(ref %1$s obj) {}\n",
+				rule.name
+			);
+		}
+
+		formatIndent(ltw, 0, "\n");
+		if(cns) {
+			formatIndent(ltw, 1, "void accept(ref const(%s) obj) {\n",
+				rule.name
+			);
+		} else {
+			formatIndent(ltw, 1, "void accept(ref %s obj) {\n",
+				rule.name
+			);
+		}
+		formatIndent(ltw, 2, "enter(obj);\n");
+
+		formatIndent(ltw, 2, "final switch(obj.ruleSelection) {\n");
+		foreach(subRule; rule.subRules) {
+			formatIndent(ltw, 3, "case %sEnum.%s:\n",
+				rule.name, subRule.name
+			);
+			foreach(elem; subRule.elements) {
+				if(elem.storeThis == StoreRulePart.yes) {
+					if(isLowerStr(elem.name)) {
+						formatIndent(ltw, 4, "obj.%s.visit(this);\n",
+							elem.storeName
+						);
+					} else {
+						formatIndent(ltw, 4, "this.accept(this.parser.%ss[obj.%sIdx]);\n"
+								, elem.name.toLowerFirst(), elem.storeName
+							);
+					}
+				}
+			}
+			formatIndent(ltw, 4, "break;\n");
+		}
+		formatIndent(ltw, 2, "}\n");
+		formatIndent(ltw, 2, "exit(obj);\n");
+		formatIndent(ltw, 1, "}\n");
+	}
+
+	override void genTreeVisitor(File.LockingTextWriter ltw) {
+		formatIndent(ltw, 0, "module %streevisitor;\n\n",
+				options.getTreeVisitorModule());
+		formatIndent(ltw, 0, "import std.traits : Unqual;\n");
+		formatIndent(ltw, 0, "import %sast;\n", options.getAstModule());
+		formatIndent(ltw, 0, "import %svisitor;\n", options.getVisitorModule());
+		formatIndent(ltw, 0, "import %stokenmodule;\n\n",
+				options.getTokenModule());
+		formatIndent(ltw, 0, "__EOF__\n\n");
+		formatIndent(ltw, 0, "class TreeVisitor : ConstVisitor {\n");
+		if(options.safe || options.pure_) {
+			string t =
+					(options.safe ? "@safe " : "")
+					~ (options.pure_ ? "pure" : "");
+			t = t.empty ? t : t ~ ":";
+			formatIndent(ltw, 0, "%s\n\n", t);
+		}
+		formatIndent(ltw, 1, "import std.stdio : write, writeln;\n\n");
+		formatIndent(ltw, 1, "alias accept = ConstVisitor.accept;\n\n");
+		formatIndent(ltw, 1, "int depth;\n\n");
+		formatIndent(ltw, 1, `this(int d) {
+		this.depth = d;
+	}
+
+`);
+		formatIndent(ltw, 1, `void genIndent() {
+		foreach(i; 0 .. this.depth) {
+			write("    ");
+		}
+	}
+`);
+		foreach(rule; this.darser.rules) {
+			genTreeVis(ltw, rule);
+		}
+
+		formatIndent(ltw, 0, "}\n");
+	}
 }
 
 class ClassBasedOutput : Output {
@@ -186,6 +646,7 @@ class ClassBasedOutput : Output {
 		//writeln("\n\n\n\nTrie\n");
 		//printTrie(t, 0);
 	}
+
 
 	override void genParseException(File.LockingTextWriter ltw) {
 		string t = "module %sexception;\n\n";
